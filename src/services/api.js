@@ -157,4 +157,28 @@ export const workoutsAPI = {
   getWorkoutStats: (params) => api.get('/workouts/stats', { params }),
 };
 
+// ============================================
+// Analytics APIs
+// ============================================
+
+const normalizeAnalyticsParams = (params = {}) => {
+  const normalized = {};
+
+  if (params.period) normalized.period = params.period;
+  if (params.start_date) normalized.start_date = params.start_date;
+  if (params.end_date) normalized.end_date = params.end_date;
+  if (params.from) normalized.from = params.from;
+  if (params.to) normalized.to = params.to;
+  if (params.days) normalized.days = params.days;
+
+  return normalized;
+};
+
+export const analyticsAPI = {
+  getDashboard: (params) => api.get('/analytics/dashboard', { params: normalizeAnalyticsParams(params) }),
+  getCharts: (params) => api.get('/analytics/charts', { params: normalizeAnalyticsParams(params) }),
+  getWorkoutSummary: (params) => api.get('/analytics/workout-summary', { params: normalizeAnalyticsParams(params) }),
+  getProgress: (params) => api.get('/analytics/progress', { params: normalizeAnalyticsParams(params) }),
+};
+
 export default api;
