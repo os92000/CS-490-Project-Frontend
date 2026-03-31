@@ -136,6 +136,16 @@ const Dashboard = () => {
             </div>
 
             <div style={{ padding: '20px', backgroundColor: '#e8f5e9', borderRadius: '8px' }}>
+              <h3 style={{ color: '#2e7d32' }}>Coach profile</h3>
+              <p style={{ color: '#666', fontSize: '14px' }}>
+                Update your qualifications, bio, and contact details
+              </p>
+              <button className="btn btn-primary" style={{ marginTop: '10px' }} onClick={() => navigate('/coach/profile')}>
+                Edit profile
+              </button>
+            </div>
+
+            <div style={{ padding: '20px', backgroundColor: '#e8f5e9', borderRadius: '8px' }}>
               <h3 style={{ color: '#2e7d32' }}>Create Workouts</h3>
               <p style={{ color: '#666', fontSize: '14px' }}>
                 Design workout plans for your clients

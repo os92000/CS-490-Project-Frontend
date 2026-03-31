@@ -118,6 +118,8 @@ export const coachesAPI = {
   getSpecializations: () => api.get('/coaches/specializations'),
   getMyClients: () => api.get('/coaches/my-clients'),
   getMyCoach: () => api.get('/coaches/my-coach'),
+  getMyCoachProfile: () => api.get('/coaches/me/profile'),
+  updateMyCoachProfile: (data) => api.put('/coaches/me/profile', data),
 };
 
 // ============================================
