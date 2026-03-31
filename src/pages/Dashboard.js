@@ -146,6 +146,26 @@ const Dashboard = () => {
             </div>
 
             <div style={{ padding: '20px', backgroundColor: '#e8f5e9', borderRadius: '8px' }}>
+              <h3 style={{ color: '#2e7d32' }}>Availability</h3>
+              <p style={{ color: '#666', fontSize: '14px' }}>
+                Set the days and times you&apos;re available for clients
+              </p>
+              <button className="btn btn-primary" style={{ marginTop: '10px' }} onClick={() => navigate('/coach/availability')}>
+                Edit availability
+              </button>
+            </div>
+
+            <div style={{ padding: '20px', backgroundColor: '#e8f5e9', borderRadius: '8px' }}>
+              <h3 style={{ color: '#2e7d32' }}>Pricing</h3>
+              <p style={{ color: '#666', fontSize: '14px' }}>
+                Set your session rates and packages
+              </p>
+              <button className="btn btn-primary" style={{ marginTop: '10px' }} onClick={() => navigate('/coach/pricing')}>
+                Edit pricing
+              </button>
+            </div>
+
+            <div style={{ padding: '20px', backgroundColor: '#e8f5e9', borderRadius: '8px' }}>
               <h3 style={{ color: '#2e7d32' }}>Create Workouts</h3>
               <p style={{ color: '#666', fontSize: '14px' }}>
                 Design workout plans for your clients

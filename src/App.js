@@ -15,6 +15,8 @@ import Chat from './pages/Chat';
 import MyWorkouts from './pages/MyWorkouts';
 import CreateWorkoutPlan from './pages/CreateWorkoutPlan';
 import CoachProfileSettings from './pages/CoachProfileSettings';
+import CoachAvailabilitySettings from './pages/CoachAvailabilitySettings';
+import CoachPricingSettings from './pages/CoachPricingSettings';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireAuth = true, redirectTo = '/login' }) => {
@@ -125,6 +127,22 @@ function App() {
           element={
             <ProtectedRoute>
               <CoachProfileSettings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/coach/availability"
+          element={
+            <ProtectedRoute>
+              <CoachAvailabilitySettings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/coach/pricing"
+          element={
+            <ProtectedRoute>
+              <CoachPricingSettings />
             </ProtectedRoute>
           }
         />
