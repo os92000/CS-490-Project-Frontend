@@ -122,6 +122,8 @@ export const coachesAPI = {
   updateMyCoachProfile: (data) => api.put('/coaches/me/profile', data),
   getMyAvailability: () => api.get('/coaches/me/availability'),
   setMyAvailability: (data) => api.put('/coaches/me/availability', data),
+  getMyPricing: () => api.get('/coaches/me/pricing'),
+  setMyPricing: (data) => api.put('/coaches/me/pricing', data),
 };
 
 // ============================================
