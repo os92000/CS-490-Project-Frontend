@@ -14,6 +14,7 @@ import MyClients from './pages/MyClients';
 import Chat from './pages/Chat';
 import MyWorkouts from './pages/MyWorkouts';
 import CreateWorkoutPlan from './pages/CreateWorkoutPlan';
+import CoachProfileSettings from './pages/CoachProfileSettings';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireAuth = true, redirectTo = '/login' }) => {
@@ -116,6 +117,14 @@ function App() {
           element={
             <ProtectedRoute>
               <MyClients />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/coach/profile"
+          element={
+            <ProtectedRoute>
+              <CoachProfileSettings />
             </ProtectedRoute>
           }
         />
