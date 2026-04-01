@@ -17,6 +17,7 @@ import CreateWorkoutPlan from './pages/CreateWorkoutPlan';
 import CoachProfileSettings from './pages/CoachProfileSettings';
 import CoachAvailabilitySettings from './pages/CoachAvailabilitySettings';
 import CoachPricingSettings from './pages/CoachPricingSettings';
+import LandingPage from './pages/LandingPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireAuth = true, redirectTo = '/login' }) => {
@@ -45,6 +46,8 @@ function App() {
       {isAuthenticated && <Navbar />}
 
       <Routes>
+        <Route path="/" element={<LandingPage />} />
+
         {/* Public routes (redirect to dashboard if logged in) */}
         <Route
           path="/login"
@@ -174,9 +177,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
-        {/* Default redirect */}
-        <Route path="/" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} />
 
         {/* 404 catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
