@@ -18,6 +18,7 @@ import CoachProfileSettings from './pages/CoachProfileSettings';
 import CoachAvailabilitySettings from './pages/CoachAvailabilitySettings';
 import CoachPricingSettings from './pages/CoachPricingSettings';
 import LandingPage from './pages/LandingPage';
+import TopCoachesPage from './pages/TopCoachesPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireAuth = true, redirectTo = '/login' }) => {
@@ -47,6 +48,7 @@ function App() {
 
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/top-coaches" element={<TopCoachesPage />} />
 
         {/* Public routes (redirect to dashboard if logged in) */}
         <Route

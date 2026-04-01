@@ -17,8 +17,13 @@ const LandingPage = () => {
     <div className="landing-page">
       <header className="landing-header">
         <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 16, paddingBottom: 16 }}>
-          <span style={{ fontWeight: 700, fontSize: '1.25rem', color: '#2e7d32' }}>Fitness App</span>
-          <div style={{ display: 'flex', gap: 12 }}>
+          <Link to="/" style={{ fontWeight: 700, fontSize: '1.25rem', color: '#2e7d32', textDecoration: 'none' }}>
+            Fitness App
+          </Link>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Link to="/top-coaches" style={{ color: '#2e7d32', fontWeight: 600, textDecoration: 'none', marginRight: 8 }}>
+              Top coaches
+            </Link>
             <Link to="/login" className="btn btn-secondary" style={{ textDecoration: 'none', display: 'inline-block' }}>
               Log in
             </Link>

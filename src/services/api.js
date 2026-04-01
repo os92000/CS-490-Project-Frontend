@@ -108,6 +108,7 @@ export const surveysAPI = {
 // ============================================
 
 export const coachesAPI = {
+  getPublicTopCoaches: (params) => api.get('/coaches/public/top-coaches', { params }),
   getCoaches: (params) => api.get('/coaches', { params }),
   getCoachDetails: (coachId) => api.get(`/coaches/${coachId}`),
   getCoachReviews: (coachId, params) => api.get(`/coaches/${coachId}/reviews`, { params }),
