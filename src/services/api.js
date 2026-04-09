@@ -12,13 +12,8 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
-    console.log('API Request:', config.method?.toUpperCase(), config.url);
-    console.log('Token exists:', !!token, 'Token length:', token?.length);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('Authorization header set');
-    } else {
-      console.log('No token found in localStorage');
     }
     return config;
   },
@@ -90,8 +85,6 @@ export const usersAPI = {
   updateProfile: (userId, data) => api.put(`/users/${userId}/profile`, data),
   getAllUsers: (params) => api.get('/users', { params }),
   deleteAccount: (userId) => api.delete(`/users/${userId}`),
-  submitRoleRequest: (data) => api.post('/users/role-requests', data),
-  getMyRoleRequest: () => api.get('/users/role-requests/me'),
 };
 
 // ============================================
@@ -110,7 +103,6 @@ export const surveysAPI = {
 // ============================================
 
 export const coachesAPI = {
-  getPublicTopCoaches: (params) => api.get('/coaches/public/top-coaches', { params }),
   getCoaches: (params) => api.get('/coaches', { params }),
   getCoachDetails: (coachId) => api.get(`/coaches/${coachId}`),
   getCoachReviews: (coachId, params) => api.get(`/coaches/${coachId}/reviews`, { params }),
@@ -121,12 +113,12 @@ export const coachesAPI = {
   getSpecializations: () => api.get('/coaches/specializations'),
   getMyClients: () => api.get('/coaches/my-clients'),
   getMyCoach: () => api.get('/coaches/my-coach'),
-  getMyCoachProfile: () => api.get('/coaches/me/profile'),
-  updateMyCoachProfile: (data) => api.put('/coaches/me/profile', data),
-  getMyAvailability: () => api.get('/coaches/me/availability'),
-  setMyAvailability: (data) => api.put('/coaches/me/availability', data),
-  getMyPricing: () => api.get('/coaches/me/pricing'),
-  setMyPricing: (data) => api.put('/coaches/me/pricing', data),
+  getCoachSettings: () => api.get('/coaches/me/settings'),
+  updateCoachSettings: (data) => api.put('/coaches/me/settings', data),
+  getClientProgress: (clientId) => api.get(`/coaches/clients/${clientId}/progress`),
+  reportCoach: (coachId, data) => api.post(`/coaches/${coachId}/report`, data),
+  getCoachApplication: () => api.get('/coaches/application'),
+  submitCoachApplication: (data) => api.post('/coaches/application', data),
 };
 
 // ============================================
@@ -137,6 +129,7 @@ export const chatAPI = {
   getConversations: () => api.get('/chat/conversations'),
   getMessages: (relationshipId, params) => api.get(`/chat/messages/${relationshipId}`, { params }),
   sendMessage: (data) => api.post('/chat/messages', data),
+  reportConversation: (data) => api.post('/chat/reports', data),
 };
 
 // ============================================
@@ -147,9 +140,6 @@ export const workoutsAPI = {
   // Exercises
   getExercises: (params) => api.get('/workouts/exercises', { params }),
   createExercise: (data) => api.post('/workouts/exercises', data),
-
-  // Workout Library (placeholder workouts)
-  getWorkoutLibrary: (params) => api.get('/workouts/library', { params }),
 
   // Workout Plans
   getWorkoutPlans: (params) => api.get('/workouts/plans', { params }),
@@ -167,30 +157,58 @@ export const workoutsAPI = {
   // Calendar & Stats
   getWorkoutCalendar: (params) => api.get('/workouts/calendar', { params }),
   getWorkoutStats: (params) => api.get('/workouts/stats', { params }),
+  getTemplates: (params) => api.get('/workouts/templates', { params }),
+  createTemplate: (data) => api.post('/workouts/templates', data),
+  customizeTemplate: (templateId, data) => api.post(`/workouts/templates/${templateId}/customize`, data),
+  createAssignment: (data) => api.post('/workouts/assignments', data),
+  deleteAssignment: (assignmentId) => api.delete('/workouts/assignments', { params: { assignment_id: assignmentId } }),
+};
+
+// ============================================
+// Nutrition APIs
+// ============================================
+
+export const nutritionAPI = {
+  getMeals: (params) => api.get('/nutrition/meals', { params }),
+  createMeal: (data) => api.post('/nutrition/meals', data),
+  deleteMeal: (mealId) => api.delete(`/nutrition/meals/${mealId}`),
+  getMealPlans: () => api.get('/nutrition/meal-plans'),
+  createMealPlan: (data) => api.post('/nutrition/meal-plans', data),
+  getMetrics: () => api.get('/nutrition/metrics'),
+  createMetric: (data) => api.post('/nutrition/metrics', data),
+  deleteMetric: (metricId) => api.delete(`/nutrition/metrics/${metricId}`),
+  getDailyMetrics: () => api.get('/nutrition/daily-metrics'),
+  createDailyMetric: (data) => api.post('/nutrition/daily-metrics', data),
+  deleteDailyMetric: (metricId) => api.delete(`/nutrition/daily-metrics/${metricId}`),
+  getWellness: () => api.get('/nutrition/wellness'),
+  createWellness: (data) => api.post('/nutrition/wellness', data),
+  deleteWellness: (logId) => api.delete(`/nutrition/wellness/${logId}`),
+};
+
+// ============================================
+// Profile APIs
+// ============================================
+
+export const profileAPI = {
+  getProfile: () => api.get('/profile'),
+  updateProfile: (data) => api.put('/profile', data),
+  getNotifications: () => api.get('/profile/notifications'),
+  markNotificationRead: (notificationId) => api.patch(`/profile/notifications/${notificationId}/read`),
+  uploadProfilePicture: (formData) => api.post('/profile/picture', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }),
 };
 
 // ============================================
 // Analytics APIs
 // ============================================
 
-const normalizeAnalyticsParams = (params = {}) => {
-  const normalized = {};
-
-  if (params.period) normalized.period = params.period;
-  if (params.start_date) normalized.start_date = params.start_date;
-  if (params.end_date) normalized.end_date = params.end_date;
-  if (params.from) normalized.from = params.from;
-  if (params.to) normalized.to = params.to;
-  if (params.days) normalized.days = params.days;
-
-  return normalized;
-};
-
 export const analyticsAPI = {
-  getDashboard: (params) => api.get('/analytics/dashboard', { params: normalizeAnalyticsParams(params) }),
-  getCharts: (params) => api.get('/analytics/charts', { params: normalizeAnalyticsParams(params) }),
-  getWorkoutSummary: (params) => api.get('/analytics/workout-summary', { params: normalizeAnalyticsParams(params) }),
-  getProgress: (params) => api.get('/analytics/progress', { params: normalizeAnalyticsParams(params) }),
+  getWorkoutSummary: (params) => api.get('/analytics/workout-summary', { params }),
+  getNutritionSummary: (params) => api.get('/analytics/nutrition-summary', { params }),
+  getProgress: () => api.get('/analytics/progress'),
 };
 
 // ============================================
@@ -198,12 +216,33 @@ export const analyticsAPI = {
 // ============================================
 
 export const adminAPI = {
-  createUser: (data) => api.post('/admin/users', data),
-  listUsers: (params) => api.get('/admin/users', { params }),
+  getUsers: () => api.get('/admin/users'),
+  getStats: () => api.get('/admin/stats'),
+  updateUserStatus: (userId, status) => api.patch(`/admin/users/${userId}/status`, { status }),
   updateUser: (userId, data) => api.put(`/admin/users/${userId}`, data),
-  deleteUser: (userId) => api.delete(`/admin/users/${userId}`),
-  listRoleRequests: (params) => api.get('/admin/role-requests', { params }),
-  respondToRoleRequest: (requestId, data) => api.patch(`/admin/role-requests/${requestId}`, data),
+  getCoachApplications: () => api.get('/admin/coach-applications'),
+  reviewCoachApplication: (applicationId, data) => api.patch(`/admin/coach-applications/${applicationId}`, data),
+  getReports: () => api.get('/admin/reports'),
+  updateReport: (reportId, data) => api.patch(`/admin/reports/${reportId}`, data),
+  getExercises: () => api.get('/admin/exercises'),
+  createExercise: (data) => api.post('/admin/exercises', data),
+  updateExercise: (exerciseId, data) => api.put(`/admin/exercises/${exerciseId}`, data),
+  deleteExercise: (exerciseId) => api.delete(`/admin/exercises/${exerciseId}`),
+  getRequests: () => api.get('/admin/requests'),
+  updateRequest: (requestId, data) => api.patch(`/admin/requests/${requestId}`, data),
+  getPaymentAnalytics: () => api.get('/admin/payment-analytics'),
+  getTemplates: () => api.get('/admin/templates'),
+  updateTemplate: (data) => api.patch('/admin/templates', data),
+};
+
+// ============================================
+// Payment APIs
+// ============================================
+
+export const paymentsAPI = {
+  getCoachPricing: (coachId) => api.get(`/payments/pricing/${coachId}`),
+  processPayment: (data) => api.post('/payments/process', data),
+  getPaymentHistory: () => api.get('/payments/history'),
 };
 
 export default api;

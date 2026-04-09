@@ -163,9 +163,9 @@ const MyClients = () => {
                       <button
                         className="btn btn-primary"
                         style={{ width: '100%' }}
-                        onClick={() => navigate(`/users/${client.id}/profile`)}
+                        onClick={() => navigate(`/clients/${client.id}`)}
                       >
-                        View Profile
+                        View Progress
                       </button>
                     </div>
                   ))}

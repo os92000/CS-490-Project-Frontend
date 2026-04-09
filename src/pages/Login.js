@@ -106,11 +106,6 @@ const Login = () => {
               Sign up here
             </Link>
           </p>
-          <p style={{ marginTop: 12 }}>
-            <Link to="/" style={{ color: '#666', textDecoration: 'none', fontSize: 14 }}>
-              ← Back to home
-            </Link>
-          </p>
         </div>
       </div>
     </div>

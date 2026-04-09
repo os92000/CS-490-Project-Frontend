@@ -1,10 +1,11 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, hasRole } = useAuth();
   const navigate = useNavigate();
+  const navClassName = ({ isActive }) => isActive ? 'active' : '';
 
   const handleLogout = async () => {
     await logout();
@@ -14,26 +15,33 @@ const Navbar = () => {
   return (
     <nav>
       <div className="container">
-        <Link to="/dashboard" className="logo">
+        <NavLink to="/dashboard" className="logo">
           Fitness App
-        </Link>
+        </NavLink>
 
         <ul className="nav-links">
           <li>
-            <Link to="/dashboard">Dashboard</Link>
+            <NavLink to="/dashboard" className={navClassName}>Dashboard</NavLink>
           </li>
-
-          {user && user.role !== 'admin' && (
-            <li>
-              <Link to="/account">Account</Link>
-            </li>
+          {hasRole(['client', 'both']) && (
+            <>
+              <li><NavLink to="/my-workouts" className={navClassName}>Workouts</NavLink></li>
+              <li><NavLink to="/nutrition" className={navClassName}>Nutrition</NavLink></li>
+              <li><NavLink to="/analytics" className={navClassName}>Analytics</NavLink></li>
+            </>
           )}
-
+          {hasRole(['coach', 'both']) && (
+            <>
+              <li><NavLink to="/my-clients" className={navClassName}>Clients</NavLink></li>
+              <li><NavLink to="/coach-settings" className={navClassName}>Coach Settings</NavLink></li>
+            </>
+          )}
           {user?.role === 'admin' && (
-            <li>
-              <Link to="/admin">Admin</Link>
-            </li>
+            <li><NavLink to="/admin" className={navClassName}>Admin</NavLink></li>
           )}
+          <li>
+            <NavLink to="/profile" className={navClassName}>Profile</NavLink>
+          </li>
 
           {user && (
             <>

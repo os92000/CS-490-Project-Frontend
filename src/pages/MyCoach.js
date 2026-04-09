@@ -4,6 +4,7 @@ import { coachesAPI } from '../services/api';
 
 const MyCoach = () => {
   const [coach, setCoach] = useState(null);
+  const [pendingRequest, setPendingRequest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showReviewForm, setShowReviewForm] = useState(false);
@@ -30,7 +31,16 @@ const MyCoach = () => {
     } catch (err) {
       console.error('Failed to load coach:', err);
       if (err.response?.status === 404) {
-        setError('You don\'t have an active coach yet. Browse coaches to find one!');
+        try {
+          const requestsResponse = await coachesAPI.getMyRequests('sent');
+          if (requestsResponse.data.success) {
+            const pending = requestsResponse.data.data.requests.find((request) => request.status === 'pending');
+            setPendingRequest(pending || null);
+          }
+        } catch (requestError) {
+          console.error('Failed to load pending requests:', requestError);
+        }
+        setError('You don\'t have an active coach yet.');
       } else {
         setError('Failed to load your coach. Please try again.');
       }
@@ -85,11 +95,16 @@ const MyCoach = () => {
           <p style={{ color: '#666', fontSize: '18px', marginBottom: '30px' }}>
             {error}
           </p>
+          {pendingRequest && (
+            <p style={{ color: '#666', marginBottom: '20px' }}>
+              You have a pending request with {pendingRequest.coach?.profile?.first_name || pendingRequest.coach?.email || 'a coach'}.
+            </p>
+          )}
           <button
             className="btn btn-primary"
             onClick={() => navigate('/coaches')}
           >
-            Browse Coaches
+            {pendingRequest ? 'Browse More Coaches' : 'Browse Coaches'}
           </button>
         </div>
       </div>

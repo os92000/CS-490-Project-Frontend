@@ -1,124 +1,80 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { workoutsAPI, analyticsAPI } from '../services/api';
-
-const PERIOD_OPTIONS = ['day', 'week', 'month', 'year'];
-
-const toNumber = (value) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
-const formatValue = (value, maxDecimals = 2) => {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return '-';
-  }
-  return Number(value).toLocaleString(undefined, { maximumFractionDigits: maxDecimals });
-};
-
-const MetricBarChart = ({ title, data, valueKey, color, suffix = '' }) => {
-  const maxValue = Math.max(...data.map((point) => toNumber(point[valueKey])), 0);
-
-  return (
-    <div className="card" style={{ marginBottom: '16px' }}>
-      <h3 style={{ marginBottom: '12px' }}>{title}</h3>
-      {data.length === 0 ? (
-        <p style={{ color: '#666' }}>No data for the selected filter range.</p>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(70px, 1fr))', gap: '10px', alignItems: 'end', minHeight: '200px' }}>
-          {data.map((point, index) => {
-            const value = toNumber(point[valueKey]);
-            const heightPercent = maxValue > 0 ? Math.max((value / maxValue) * 100, 6) : 6;
-
-            return (
-              <div key={`${point.bucket}-${index}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '12px', color: '#2e7d32', fontWeight: 600 }}>{formatValue(value)}{suffix}</span>
-                <div style={{ width: '100%', maxWidth: '46px', height: '130px', display: 'flex', alignItems: 'flex-end' }}>
-                  <div
-                    style={{
-                      width: '100%',
-                      height: `${heightPercent}%`,
-                      backgroundColor: color,
-                      borderRadius: '6px 6px 2px 2px',
-                      transition: 'height 0.3s ease',
-                    }}
-                    title={`${point.bucket}: ${formatValue(value)}${suffix}`}
-                  />
-                </div>
-                <span style={{ fontSize: '11px', color: '#666', textAlign: 'center' }}>{point.bucket}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-};
-
-const EMPTY_LOG_FORM = {
-  library_exercise_id: '',
-  workout_name: '',
-  exercise_type: '',
-  muscle_group: '',
-  calories_burned: '',
-  plan_id: '',
-  workout_day_id: '',
-  date: new Date().toISOString().split('T')[0],
-  duration_minutes: '',
-  notes: '',
-  rating: 3,
-};
+import React, { useEffect, useMemo, useState } from 'react';
+import { workoutsAPI } from '../services/api';
 
 const MyWorkouts = () => {
-  const navigate = useNavigate();
   const [plans, setPlans] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [calendar, setCalendar] = useState({ logs: [], plans: [] });
+  const [exercises, setExercises] = useState([]);
+  const [templates, setTemplates] = useState([]);
   const [stats, setStats] = useState(null);
-  const [library, setLibrary] = useState([]);
-  const [libraryLoading, setLibraryLoading] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('library');
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
-  const [analyticsError, setAnalyticsError] = useState('');
-  const [workoutSeries, setWorkoutSeries] = useState([]);
-  const [workoutSummary, setWorkoutSummary] = useState(null);
-  const [analyticsFilters, setAnalyticsFilters] = useState({
-    period: 'week',
-    start_date: '',
-    end_date: '',
-    days: ''
-  });
+  const [activeTab, setActiveTab] = useState('plans');
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [logFormVisible, setLogFormVisible] = useState(false);
-  const [logForm, setLogForm] = useState(EMPTY_LOG_FORM);
+  const [planFilter, setPlanFilter] = useState('');
+  const [planFilters, setPlanFilters] = useState({
+    goal: '',
+    difficulty: '',
+    plan_type: '',
+    duration_weeks: '',
+  });
+  const [exerciseFilters, setExerciseFilters] = useState({
+    search: '',
+    category: '',
+    muscle_group: '',
+    difficulty: '',
+    equipment: '',
+  });
+  const [templateFilters, setTemplateFilters] = useState({
+    goal: '',
+    difficulty: '',
+    plan_type: '',
+  });
+  const [assignmentForm, setAssignmentForm] = useState({
+    plan_id: '',
+    assigned_date: new Date().toISOString().split('T')[0],
+  });
+  const [logForm, setLogForm] = useState({
+    plan_id: '',
+    workout_day_id: '',
+    date: new Date().toISOString().split('T')[0],
+    duration_minutes: '',
+    notes: '',
+    rating: 3,
+  });
 
   useEffect(() => {
     loadData();
-    loadLibrary();
   }, []);
+
+  useEffect(() => {
+    loadExercises();
+  }, [exerciseFilters]);
+
+  useEffect(() => {
+    loadTemplates();
+  }, [templateFilters]);
 
   const loadData = async () => {
     try {
       setLoading(true);
+      const [plansRes, logsRes, statsRes, calendarRes] = await Promise.all([
+        workoutsAPI.getWorkoutPlans({ role: 'client' }),
+        workoutsAPI.getWorkoutLogs(),
+        workoutsAPI.getWorkoutStats({ period: 30 }),
+        workoutsAPI.getWorkoutCalendar({
+          year: new Date().getFullYear(),
+          month: new Date().getMonth() + 1,
+        }),
+      ]);
 
-      // Load workout plans
-      const plansRes = await workoutsAPI.getWorkoutPlans({ role: 'client' });
-      if (plansRes.data.success) {
-        setPlans(plansRes.data.data.plans);
-      }
-
-      // Load workout logs (last 30 days)
-      const logsRes = await workoutsAPI.getWorkoutLogs();
-      if (logsRes.data.success) {
-        setLogs(logsRes.data.data.logs);
-      }
-
-      // Load stats
-      const statsRes = await workoutsAPI.getWorkoutStats({ period: 30 });
-      if (statsRes.data.success) {
-        setStats(statsRes.data.data);
-      }
-
+      if (plansRes.data.success) setPlans(plansRes.data.data.plans);
+      if (logsRes.data.success) setLogs(logsRes.data.data.logs);
+      if (statsRes.data.success) setStats(statsRes.data.data);
+      if (calendarRes.data.success) setCalendar(calendarRes.data.data);
+      const templatesRes = await workoutsAPI.getTemplates();
+      if (templatesRes.data.success) setTemplates(templatesRes.data.data.templates);
     } catch (error) {
       console.error('Error loading workout data:', error);
     } finally {
@@ -126,43 +82,26 @@ const MyWorkouts = () => {
     }
   };
 
-  const loadLibrary = async () => {
+  const loadExercises = async () => {
     try {
-      setLibraryLoading(true);
-      const res = await workoutsAPI.getWorkoutLibrary();
-      if (res.data.success) {
-        setLibrary(res.data.data?.workouts || []);
+      const response = await workoutsAPI.getExercises(exerciseFilters);
+      if (response.data.success) {
+        setExercises(response.data.data.exercises);
       }
     } catch (error) {
-      console.error('Error loading workout library:', error);
-    } finally {
-      setLibraryLoading(false);
+      console.error('Error loading exercise inventory:', error);
     }
   };
 
-  const openLogFormFromLibrary = (libraryWorkout) => {
-    setLogForm({
-      ...EMPTY_LOG_FORM,
-      library_exercise_id: libraryWorkout.id,
-      workout_name: libraryWorkout.name || '',
-      exercise_type: libraryWorkout.category || '',
-      muscle_group: libraryWorkout.muscle_group || '',
-      calories_burned:
-        libraryWorkout.calories != null ? String(libraryWorkout.calories) : '',
-      duration_minutes:
-        libraryWorkout.default_duration_minutes != null
-          ? String(libraryWorkout.default_duration_minutes)
-          : '',
-      date: new Date().toISOString().split('T')[0],
-    });
-    setLogFormVisible(true);
-    // Scroll to the top so the form is visible
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const openCustomLogForm = () => {
-    setLogForm(EMPTY_LOG_FORM);
-    setLogFormVisible(true);
+  const loadTemplates = async () => {
+    try {
+      const response = await workoutsAPI.getTemplates(templateFilters);
+      if (response.data.success) {
+        setTemplates(response.data.data.templates);
+      }
+    } catch (error) {
+      console.error('Error loading workout templates:', error);
+    }
   };
 
   const viewPlanDetails = async (planId) => {
@@ -176,152 +115,107 @@ const MyWorkouts = () => {
     }
   };
 
-  const isDayCompletedToday = (dayId) => {
-    const today = new Date().toISOString().split('T')[0];
-    return logs.some(
-      (log) => log.workout_day_id === dayId && log.date === today && log.completed
-    );
-  };
-
-  const handleMarkDayCompleted = async (day) => {
-    if (!selectedPlan) return;
-    if (isDayCompletedToday(day.id)) return;
-    if (!window.confirm(`Mark "${day.name}" as completed for today?`)) return;
-
-    // Sum up any per-exercise durations in the day (if set on the plan)
-    const totalDuration = (day.exercises || []).reduce((sum, ex) => {
-      const dur = Number(ex.duration_minutes);
-      return Number.isFinite(dur) && dur > 0 ? sum + dur : sum;
-    }, 0);
-
-    // Infer a reasonable exercise_type if all the day's exercises share one
-    const categories = (day.exercises || [])
-      .map((ex) => ex.exercise?.category)
-      .filter(Boolean);
-    const uniqueCategories = Array.from(new Set(categories));
-    const inferredType = uniqueCategories.length === 1 ? uniqueCategories[0] : null;
-
-    const payload = {
-      plan_id: selectedPlan.id,
-      workout_day_id: day.id,
-      workout_name: day.name,
-      date: new Date().toISOString().split('T')[0],
-      duration_minutes: totalDuration > 0 ? totalDuration : null,
-      exercise_type: inferredType,
-      completed: true,
-      notes: 'Marked complete from plan',
-      rating: 3,
-    };
-
-    try {
-      const response = await workoutsAPI.createWorkoutLog(payload);
-      if (response.data.success) {
-        // Refresh logs + stats so history and analytics reflect the change
-        await loadData();
-        // Refresh analytics if the user is currently on that tab
-        if (activeTab === 'analytics') {
-          await loadAnalyticsData();
-        }
-        alert(`"${day.name}" marked as completed!`);
-      } else {
-        alert(response.data.message || 'Failed to mark day as completed');
-      }
-    } catch (error) {
-      console.error('Error marking day completed:', error);
-      const msg =
-        error.response?.data?.message ||
-        error.response?.data?.error ||
-        'Failed to mark day as completed';
-      alert(msg);
-    }
-  };
-
-  const loadAnalyticsData = useCallback(async () => {
-    try {
-      setAnalyticsLoading(true);
-      setAnalyticsError('');
-
-      const params = { period: analyticsFilters.period };
-
-      if (analyticsFilters.start_date && analyticsFilters.end_date) {
-        params.start_date = analyticsFilters.start_date;
-        params.end_date = analyticsFilters.end_date;
-      } else if (analyticsFilters.days) {
-        params.days = Number(analyticsFilters.days);
-      }
-
-      const [chartsRes, summaryRes] = await Promise.all([
-        analyticsAPI.getCharts(params),
-        analyticsAPI.getWorkoutSummary(params)
-      ]);
-
-      setWorkoutSeries(chartsRes.data?.data?.series?.workouts || []);
-      setWorkoutSummary(summaryRes.data?.data || null);
-    } catch (error) {
-      console.error('Error loading workout analytics:', error);
-      setAnalyticsError(error.response?.data?.message || 'Failed to load workout analytics.');
-      setWorkoutSeries([]);
-      setWorkoutSummary(null);
-    } finally {
-      setAnalyticsLoading(false);
-    }
-  }, [analyticsFilters]);
-
-  useEffect(() => {
-    if (activeTab === 'analytics') {
-      loadAnalyticsData();
-    }
-  }, [activeTab, loadAnalyticsData]);
-
-  const applyAnalyticsFilters = () => {
-    loadAnalyticsData();
-  };
-
-  const clearAnalyticsDateFilters = () => {
-    setAnalyticsFilters((prev) => ({
-      ...prev,
-      start_date: '',
-      end_date: '',
-      days: ''
-    }));
-  };
-
-  const totalCompleted = workoutSeries.reduce((sum, point) => sum + toNumber(point.workouts_completed), 0);
-  const totalDuration = workoutSeries.reduce((sum, point) => sum + toNumber(point.total_duration_minutes), 0);
-  const avgRatingAcrossBuckets = workoutSeries.length
-    ? workoutSeries.reduce((sum, point) => sum + toNumber(point.average_rating), 0) / workoutSeries.length
-    : 0;
-
   const handleLogWorkout = async (e) => {
     e.preventDefault();
     try {
-      const payload = {
-        date: logForm.date,
-        duration_minutes: logForm.duration_minutes || null,
-        notes: logForm.notes || null,
-        rating: logForm.rating,
-        workout_name: logForm.workout_name.trim() || null,
-        exercise_type: logForm.exercise_type || null,
-        muscle_group: logForm.muscle_group.trim() || null,
-        calories_burned: logForm.calories_burned || null,
-        library_exercise_id: logForm.library_exercise_id || null,
-      };
-      const response = await workoutsAPI.createWorkoutLog(payload);
+      const response = await workoutsAPI.createWorkoutLog(logForm);
       if (response.data.success) {
-        alert('Workout logged successfully!');
         setLogFormVisible(false);
         setLogForm({
-          ...EMPTY_LOG_FORM,
+          plan_id: '',
+          workout_day_id: '',
           date: new Date().toISOString().split('T')[0],
+          duration_minutes: '',
+          notes: '',
+          rating: 3,
         });
         loadData();
-        setActiveTab('history');
       }
     } catch (error) {
       console.error('Error logging workout:', error);
-      alert(error.response?.data?.message || 'Failed to log workout');
+      alert('Failed to log workout');
     }
   };
+
+  const filteredPlans = useMemo(() => {
+    if (!planFilter.trim()) return plans;
+    const search = planFilter.toLowerCase();
+    return plans.filter((plan) => {
+      const matchesSearch =
+        plan.name?.toLowerCase().includes(search) ||
+        plan.description?.toLowerCase().includes(search) ||
+        plan.status?.toLowerCase().includes(search);
+
+      const matchesGoal = !planFilters.goal || plan.metadata?.goal?.toLowerCase().includes(planFilters.goal.toLowerCase());
+      const matchesDifficulty = !planFilters.difficulty || plan.metadata?.difficulty === planFilters.difficulty;
+      const matchesType = !planFilters.plan_type || plan.metadata?.plan_type?.toLowerCase().includes(planFilters.plan_type.toLowerCase());
+      const matchesDuration = !planFilters.duration_weeks || `${plan.metadata?.duration_weeks || ''}` === `${planFilters.duration_weeks}`;
+
+      return matchesSearch && matchesGoal && matchesDifficulty && matchesType && matchesDuration;
+    });
+  }, [plans, planFilter, planFilters]);
+
+  const customizeTemplate = async (template) => {
+    try {
+      await workoutsAPI.customizeTemplate(template.id, {
+        name: `${template.name} (Customized)`,
+        goal: template.goal,
+        difficulty: template.difficulty,
+        plan_type: template.plan_type,
+        duration_weeks: template.duration_weeks,
+      });
+      await loadData();
+      setActiveTab('plans');
+    } catch (error) {
+      console.error('Error customizing template:', error);
+      alert('Failed to customize template');
+    }
+  };
+
+  const exerciseInsights = useMemo(() => {
+    const categoryCounts = {};
+    const difficultyCounts = {};
+    const equipmentCounts = {};
+    const muscleCounts = {};
+
+    exercises.forEach((exercise) => {
+      const category = exercise.category || 'uncategorized';
+      const difficulty = exercise.difficulty || 'unspecified';
+      const equipment = exercise.equipment || 'bodyweight';
+      const muscle = exercise.muscle_group || 'general';
+
+      categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+      difficultyCounts[difficulty] = (difficultyCounts[difficulty] || 0) + 1;
+      equipmentCounts[equipment] = (equipmentCounts[equipment] || 0) + 1;
+      muscleCounts[muscle] = (muscleCounts[muscle] || 0) + 1;
+    });
+
+    const toEntries = (source, limit = null) => {
+      const list = Object.entries(source)
+        .map(([label, value]) => ({ label, value }))
+        .sort((a, b) => b.value - a.value);
+      return limit ? list.slice(0, limit) : list;
+    };
+
+    return {
+      totalExercises: exercises.length,
+      uniqueMuscles: Object.keys(muscleCounts).length,
+      uniqueEquipment: Object.keys(equipmentCounts).length,
+      beginnerFriendly: difficultyCounts.beginner || 0,
+      categories: toEntries(categoryCounts),
+      difficulties: toEntries(difficultyCounts),
+      equipment: toEntries(equipmentCounts, 4),
+      muscles: toEntries(muscleCounts, 5),
+    };
+  }, [exercises]);
+
+  const maxCategoryCount = Math.max(...exerciseInsights.categories.map((item) => item.value), 1);
+  const maxDifficultyCount = Math.max(...exerciseInsights.difficulties.map((item) => item.value), 1);
+  const maxEquipmentCount = Math.max(...exerciseInsights.equipment.map((item) => item.value), 1);
+  const maxMuscleCount = Math.max(...exerciseInsights.muscles.map((item) => item.value), 1);
+  const topCategory = exerciseInsights.categories[0];
+  const topDifficulty = exerciseInsights.difficulties[0];
+  const topEquipment = exerciseInsights.equipment[0];
 
   if (loading) {
     return (
@@ -332,139 +226,56 @@ const MyWorkouts = () => {
   }
 
   return (
-    <div className="container" style={{ maxWidth: '1200px', marginTop: '30px' }}>
-      <h1>My Workouts</h1>
+    <div className="container page-shell">
+      <div className="page-hero">
+        <div>
+          <p className="eyebrow">Workouts</p>
+          <h1>Plans, exercise inventory, training history, and monthly calendar</h1>
+          <p className="page-copy">Browse assigned plans, review the exercise library, and keep your workout logging current.</p>
+        </div>
+      </div>
 
-      {/* Stats Overview */}
       {stats && (
-        <div className="card" style={{ backgroundColor: '#e8f5e9', marginBottom: '20px' }}>
-          <h3>Last 30 Days</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '20px', marginTop: '15px' }}>
-            <div>
-              <p style={{ color: '#666', fontSize: '14px', marginBottom: '5px' }}>Total Workouts</p>
-              <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#2e7d32', margin: 0 }}>{stats.total_workouts}</p>
-            </div>
-            <div>
-              <p style={{ color: '#666', fontSize: '14px', marginBottom: '5px' }}>Total Time</p>
-              <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#2e7d32', margin: 0 }}>{stats.total_duration_minutes} min</p>
-            </div>
-            <div>
-              <p style={{ color: '#666', fontSize: '14px', marginBottom: '5px' }}>Avg Rating</p>
-              <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#2e7d32', margin: 0 }}>{stats.average_rating}/5</p>
-            </div>
-            <div>
-              <p style={{ color: '#666', fontSize: '14px', marginBottom: '5px' }}>Frequency</p>
-              <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#2e7d32', margin: 0 }}>{stats.workout_frequency_per_week}x/week</p>
-            </div>
-          </div>
+        <div className="stats-grid">
+          <div className="stat-card"><span>Total workouts</span><strong>{stats.total_workouts}</strong></div>
+          <div className="stat-card"><span>Total time</span><strong>{stats.total_duration_minutes} min</strong></div>
+          <div className="stat-card"><span>Average rating</span><strong>{stats.average_rating}/5</strong></div>
+          <div className="stat-card"><span>Frequency</span><strong>{stats.workout_frequency_per_week}x/week</strong></div>
         </div>
       )}
 
-      {/* Quick Actions */}
       <div style={{ marginBottom: '20px' }}>
-        <button
-          className="btn btn-primary"
-          onClick={() => (logFormVisible ? setLogFormVisible(false) : openCustomLogForm())}
-          style={{ marginRight: '10px' }}
-        >
-          {logFormVisible ? 'Cancel' : 'Log Custom Workout'}
+        <button className="btn btn-primary" onClick={() => setLogFormVisible(!logFormVisible)}>
+          {logFormVisible ? 'Cancel' : 'Log Workout'}
         </button>
       </div>
 
-      {/* Log Workout Form */}
       {logFormVisible && (
         <div className="card" style={{ marginBottom: '20px' }}>
-          <h3>
-            {logForm.library_exercise_id
-              ? `Log: ${logForm.workout_name || 'Library Workout'}`
-              : 'Log Custom Workout'}
-          </h3>
-          {logForm.library_exercise_id && (
-            <p style={{ color: '#4CAF50', fontSize: '14px', marginBottom: '10px' }}>
-              Pre-filled from the workout library. Adjust any field to match what you actually did.
-            </p>
-          )}
+          <h3>Log Workout</h3>
           <form onSubmit={handleLogWorkout}>
-            <div className="form-group">
-              <label>Workout Name</label>
-              <input
-                type="text"
-                className="input"
-                value={logForm.workout_name}
-                onChange={(e) => setLogForm({ ...logForm, workout_name: e.target.value })}
-                placeholder="e.g., Morning run, Leg day"
-              />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px' }}>
+            <div className="detail-grid">
               <div className="form-group">
                 <label>Date *</label>
                 <input
                   type="date"
-                  className="input"
                   value={logForm.date}
                   onChange={(e) => setLogForm({ ...logForm, date: e.target.value })}
                   required
                 />
               </div>
-
               <div className="form-group">
                 <label>Duration (minutes)</label>
                 <input
                   type="number"
-                  className="input"
                   value={logForm.duration_minutes}
                   onChange={(e) => setLogForm({ ...logForm, duration_minutes: e.target.value })}
                   placeholder="e.g., 45"
-                  min="0"
                 />
               </div>
-
-              <div className="form-group">
-                <label>Calories Burned</label>
-                <input
-                  type="number"
-                  className="input"
-                  value={logForm.calories_burned}
-                  onChange={(e) => setLogForm({ ...logForm, calories_burned: e.target.value })}
-                  placeholder="e.g., 300"
-                  min="0"
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px' }}>
-              <div className="form-group">
-                <label>Exercise Type</label>
-                <select
-                  className="input"
-                  value={logForm.exercise_type}
-                  onChange={(e) => setLogForm({ ...logForm, exercise_type: e.target.value })}
-                >
-                  <option value="">Select type</option>
-                  <option value="cardio">Cardio</option>
-                  <option value="strength">Strength</option>
-                  <option value="flexibility">Flexibility</option>
-                  <option value="balance">Balance</option>
-                  <option value="sports">Sports</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Muscle Group</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={logForm.muscle_group}
-                  onChange={(e) => setLogForm({ ...logForm, muscle_group: e.target.value })}
-                  placeholder="e.g., legs, chest, full-body"
-                />
-              </div>
-
               <div className="form-group">
                 <label>Rating (1-5)</label>
                 <select
-                  className="input"
                   value={logForm.rating}
                   onChange={(e) => setLogForm({ ...logForm, rating: parseInt(e.target.value, 10) })}
                 >
@@ -476,264 +287,133 @@ const MyWorkouts = () => {
                 </select>
               </div>
             </div>
-
             <div className="form-group">
               <label>Notes</label>
               <textarea
-                className="input"
                 value={logForm.notes}
                 onChange={(e) => setLogForm({ ...logForm, notes: e.target.value })}
                 rows="3"
                 placeholder="How did you feel? Any achievements?"
               />
             </div>
-
-            <button type="submit" className="btn btn-primary">
-              Save Workout Log
-            </button>
+            <button type="submit" className="btn btn-primary">Save Workout Log</button>
           </form>
         </div>
       )}
 
-      {/* Tabs */}
-      <div style={{ borderBottom: '2px solid #eee', marginBottom: '20px' }}>
-        <button
-          onClick={() => setActiveTab('library')}
-          style={{
-            padding: '10px 20px',
-            border: 'none',
-            background: 'none',
-            cursor: 'pointer',
-            borderBottom: activeTab === 'library' ? '3px solid #4CAF50' : 'none',
-            fontWeight: activeTab === 'library' ? 'bold' : 'normal',
-            color: activeTab === 'library' ? '#4CAF50' : '#666'
-          }}
-        >
-          Workout Library
-        </button>
-        <button
-          onClick={() => setActiveTab('plans')}
-          style={{
-            padding: '10px 20px',
-            border: 'none',
-            background: 'none',
-            cursor: 'pointer',
-            borderBottom: activeTab === 'plans' ? '3px solid #4CAF50' : 'none',
-            fontWeight: activeTab === 'plans' ? 'bold' : 'normal',
-            color: activeTab === 'plans' ? '#4CAF50' : '#666',
-            marginLeft: '10px'
-          }}
-        >
-          Workout Plans
-        </button>
-        <button
-          onClick={() => setActiveTab('history')}
-          style={{
-            padding: '10px 20px',
-            border: 'none',
-            background: 'none',
-            cursor: 'pointer',
-            borderBottom: activeTab === 'history' ? '3px solid #4CAF50' : 'none',
-            fontWeight: activeTab === 'history' ? 'bold' : 'normal',
-            color: activeTab === 'history' ? '#4CAF50' : '#666',
-            marginLeft: '10px'
-          }}
-        >
-          Workout History
-        </button>
-        <button
-          onClick={() => setActiveTab('analytics')}
-          style={{
-            padding: '10px 20px',
-            border: 'none',
-            background: 'none',
-            cursor: 'pointer',
-            borderBottom: activeTab === 'analytics' ? '3px solid #4CAF50' : 'none',
-            fontWeight: activeTab === 'analytics' ? 'bold' : 'normal',
-            color: activeTab === 'analytics' ? '#4CAF50' : '#666',
-            marginLeft: '10px'
-          }}
-        >
-          Analytics Charts
-        </button>
+      <div className="tab-row">
+        {['plans', 'history', 'inventory', 'templates', 'calendar'].map((tab) => (
+          <button
+            key={tab}
+            className={`tab-button ${activeTab === tab ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab)}
+          >
+            {tab}
+          </button>
+        ))}
       </div>
 
-      {/* Workout Library Tab */}
-      {activeTab === 'library' && (
-        <div>
-          <p style={{ color: '#666', marginBottom: '15px' }}>
-            Browse placeholder workouts. Click a card to log one — you can edit any field before saving, or use "Log Custom Workout" above to create your own from scratch.
-          </p>
-          {libraryLoading ? (
-            <div className="card" style={{ textAlign: 'center' }}>
-              <p>Loading workout library...</p>
-            </div>
-          ) : library.length === 0 ? (
-            <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
-              <p style={{ color: '#666', fontSize: '16px' }}>
-                No library workouts yet. Run <code>python seed_workout_library.py</code> on the backend to populate it.
-              </p>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gap: '15px', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
-              {library.map((w) => (
-                <div key={w.id} className="card" style={{ margin: 0 }}>
-                  <h3 style={{ color: '#4CAF50', marginBottom: '8px' }}>{w.name}</h3>
-                  {w.description && (
-                    <p style={{ color: '#666', fontSize: '14px', marginBottom: '10px' }}>
-                      {w.description}
-                    </p>
-                  )}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px', fontSize: '13px', color: '#444', marginBottom: '12px' }}>
-                    {w.category && (
-                      <div>
-                        <strong>Type:</strong>{' '}
-                        <span style={{ textTransform: 'capitalize' }}>{w.category}</span>
-                      </div>
-                    )}
-                    {w.muscle_group && (
-                      <div>
-                        <strong>Muscle:</strong> {w.muscle_group}
-                      </div>
-                    )}
-                    {w.default_duration_minutes != null && (
-                      <div>
-                        <strong>Time:</strong> {w.default_duration_minutes} min
-                      </div>
-                    )}
-                    {w.calories != null && (
-                      <div>
-                        <strong>Calories:</strong> ~{w.calories}
-                      </div>
-                    )}
-                    {w.difficulty && (
-                      <div>
-                        <strong>Level:</strong>{' '}
-                        <span style={{ textTransform: 'capitalize' }}>{w.difficulty}</span>
-                      </div>
-                    )}
-                    {w.equipment && w.equipment !== 'none' && (
-                      <div>
-                        <strong>Equipment:</strong> {w.equipment}
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    className="btn btn-primary"
-                    style={{ width: '100%' }}
-                    onClick={() => openLogFormFromLibrary(w)}
-                  >
-                    Log This Workout
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Workout Plans Tab */}
       {activeTab === 'plans' && (
         <div>
-          {!selectedPlan && (
-            <div style={{ marginBottom: '15px', display: 'flex', justifyContent: 'flex-end' }}>
-              <button
-                className="btn btn-primary"
-                onClick={() => navigate('/create-workout-plan')}
-              >
-                + Create New Plan
-              </button>
+          <div className="card">
+            <div className="detail-grid">
+              <div className="form-group">
+                <label>Search</label>
+                <input
+                  value={planFilter}
+                  onChange={(e) => setPlanFilter(e.target.value)}
+                  placeholder="Search by plan name, description, or status"
+                />
+              </div>
+              <div className="form-group">
+                <label>Goal</label>
+                <input value={planFilters.goal} onChange={(e) => setPlanFilters({ ...planFilters, goal: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Difficulty</label>
+                <select value={planFilters.difficulty} onChange={(e) => setPlanFilters({ ...planFilters, difficulty: e.target.value })}>
+                  <option value="">All</option>
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Plan Type</label>
+                <input value={planFilters.plan_type} onChange={(e) => setPlanFilters({ ...planFilters, plan_type: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Duration (weeks)</label>
+                <input type="number" value={planFilters.duration_weeks} onChange={(e) => setPlanFilters({ ...planFilters, duration_weeks: e.target.value })} />
+              </div>
             </div>
-          )}
-          {plans.length === 0 ? (
+          </div>
+
+          {filteredPlans.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
               <p style={{ color: '#666', fontSize: '18px' }}>
-                No workout plans yet. Build one yourself with "Create New Plan", or wait for your coach to assign one.
+                No workout plans yet. Your coach will create one for you.
               </p>
             </div>
           ) : selectedPlan ? (
             <div className="card">
-              <button
-                onClick={() => setSelectedPlan(null)}
-                className="btn btn-secondary"
-                style={{ marginBottom: '15px' }}
-              >
-                ← Back to Plans
+              <button onClick={() => setSelectedPlan(null)} className="btn btn-secondary" style={{ marginBottom: '15px' }}>
+                Back to Plans
               </button>
               <h2>{selectedPlan.name}</h2>
-              <p style={{ color: '#666' }}>{selectedPlan.description}</p>
-              <p style={{ fontSize: '14px', color: '#888' }}>
+              <p className="muted-text">{selectedPlan.description}</p>
+              <p className="muted-text">
                 {selectedPlan.start_date && `Start: ${selectedPlan.start_date}`}
                 {selectedPlan.end_date && ` | End: ${selectedPlan.end_date}`}
               </p>
 
-              {selectedPlan.days && selectedPlan.days.map((day) => {
-                const dayCompleted = isDayCompletedToday(day.id);
-                return (
-                <div key={day.id} style={{ marginTop: '20px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                    <h4 style={{ margin: 0 }}>{day.name}</h4>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() => handleMarkDayCompleted(day)}
-                      disabled={dayCompleted}
-                      style={{
-                        padding: '6px 14px',
-                        fontSize: '13px',
-                        ...(dayCompleted && {
-                          backgroundColor: '#9e9e9e',
-                          cursor: 'not-allowed',
-                          opacity: 0.7,
-                        }),
-                      }}
-                    >
-                      {dayCompleted ? '✓ Completed Today' : '✓ Mark as Completed'}
-                    </button>
-                  </div>
-                  {day.notes && <p style={{ fontSize: '14px', color: '#666', fontStyle: 'italic' }}>{day.notes}</p>}
-
-                  {day.exercises && day.exercises.length > 0 && (
-                    <table style={{ width: '100%', marginTop: '10px', borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr style={{ backgroundColor: '#e0e0e0' }}>
-                          <th style={{ padding: '8px', textAlign: 'left' }}>Exercise</th>
-                          <th style={{ padding: '8px', textAlign: 'center' }}>Sets</th>
-                          <th style={{ padding: '8px', textAlign: 'center' }}>Reps</th>
-                          <th style={{ padding: '8px', textAlign: 'center' }}>Weight</th>
-                          <th style={{ padding: '8px', textAlign: 'center' }}>Rest</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {day.exercises.map((ex) => (
-                          <tr key={ex.id} style={{ borderBottom: '1px solid #eee' }}>
-                            <td style={{ padding: '8px' }}>
-                              <strong>{ex.exercise?.name || 'Exercise'}</strong>
-                              {ex.notes && <p style={{ fontSize: '12px', color: '#888', margin: '5px 0 0 0' }}>{ex.notes}</p>}
-                            </td>
-                            <td style={{ padding: '8px', textAlign: 'center' }}>{ex.sets || '-'}</td>
-                            <td style={{ padding: '8px', textAlign: 'center' }}>{ex.reps || '-'}</td>
-                            <td style={{ padding: '8px', textAlign: 'center' }}>{ex.weight || '-'}</td>
-                            <td style={{ padding: '8px', textAlign: 'center' }}>{ex.rest_seconds ? `${ex.rest_seconds}s` : '-'}</td>
+              {selectedPlan.days?.map((day) => (
+                <div key={day.id} className="stack-card">
+                  <h4>{day.name}</h4>
+                  {day.notes && <p className="muted-text">{day.notes}</p>}
+                  {day.exercises?.length > 0 && (
+                    <div className="table-wrap">
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Exercise</th>
+                            <th>Sets</th>
+                            <th>Reps</th>
+                            <th>Weight</th>
+                            <th>Rest</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {day.exercises.map((exercise) => (
+                            <tr key={exercise.id}>
+                              <td>{exercise.exercise?.name || 'Exercise'}</td>
+                              <td>{exercise.sets || '-'}</td>
+                              <td>{exercise.reps || '-'}</td>
+                              <td>{exercise.weight || '-'}</td>
+                              <td>{exercise.rest_seconds ? `${exercise.rest_seconds}s` : '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
-                );
-              })}
+              ))}
             </div>
           ) : (
             <div style={{ display: 'grid', gap: '15px' }}>
-              {plans.map((plan) => (
+              {filteredPlans.map((plan) => (
                 <div key={plan.id} className="card" style={{ cursor: 'pointer' }} onClick={() => viewPlanDetails(plan.id)}>
                   <h3 style={{ color: '#4CAF50', marginBottom: '10px' }}>{plan.name}</h3>
-                  <p style={{ color: '#666', fontSize: '14px' }}>{plan.description}</p>
-                  <div style={{ display: 'flex', gap: '15px', marginTop: '10px', fontSize: '13px', color: '#888' }}>
-                    <span>Status: <strong style={{ color: plan.status === 'active' ? '#4CAF50' : '#666' }}>{plan.status}</strong></span>
-                    {plan.start_date && <span>Start: {plan.start_date}</span>}
-                    {plan.end_date && <span>End: {plan.end_date}</span>}
+                  <p className="muted-text">{plan.description}</p>
+                  <div className="badge-group" style={{ marginTop: '10px' }}>
+                    <span className="badge">{plan.status}</span>
+                    {plan.metadata?.goal && <span className="badge">{plan.metadata.goal}</span>}
+                    {plan.metadata?.difficulty && <span className="badge">{plan.metadata.difficulty}</span>}
+                    {plan.metadata?.plan_type && <span className="badge">{plan.metadata.plan_type}</span>}
+                    {plan.metadata?.duration_weeks && <span className="badge">{plan.metadata.duration_weeks} weeks</span>}
+                    {plan.start_date && <span className="badge">Start {plan.start_date}</span>}
+                    {plan.end_date && <span className="badge">End {plan.end_date}</span>}
                   </div>
                 </div>
               ))}
@@ -742,232 +422,380 @@ const MyWorkouts = () => {
         </div>
       )}
 
-      {/* Workout History Tab */}
       {activeTab === 'history' && (
         <div>
           {logs.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
               <p style={{ color: '#666', fontSize: '18px' }}>
-                No workout logs yet. Start logging your workouts!
+                No workout logs yet. Start logging your workouts.
               </p>
             </div>
           ) : (
             <div style={{ display: 'grid', gap: '15px' }}>
-              {logs.map((log) => {
-                const title =
-                  log.workout_name ||
-                  log.workout_day?.name ||
-                  log.library_exercise?.name ||
-                  'Workout';
-                return (
-                  <div key={log.id} className="card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                      <div>
-                        <h4 style={{ color: '#4CAF50', marginBottom: '5px' }}>{title}</h4>
-                        <p style={{ color: '#888', fontSize: '14px', margin: '0 0 10px 0' }}>
-                          {new Date(log.date).toLocaleDateString()}
-                        </p>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', fontSize: '12px' }}>
-                          {log.exercise_type && (
-                            <span style={{ backgroundColor: '#e8f5e9', color: '#2e7d32', padding: '3px 10px', borderRadius: '12px', textTransform: 'capitalize' }}>
-                              {log.exercise_type}
-                            </span>
-                          )}
-                          {log.muscle_group && (
-                            <span style={{ backgroundColor: '#e3f2fd', color: '#1565c0', padding: '3px 10px', borderRadius: '12px' }}>
-                              {log.muscle_group}
-                            </span>
-                          )}
-                          {log.library_exercise_id && (
-                            <span style={{ backgroundColor: '#fff3e0', color: '#e65100', padding: '3px 10px', borderRadius: '12px' }}>
-                              From library
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        {log.duration_minutes != null && (
-                          <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#2e7d32', margin: 0 }}>
-                            {log.duration_minutes} min
-                          </p>
-                        )}
-                        {log.calories_burned != null && (
-                          <p style={{ fontSize: '14px', color: '#e65100', margin: '5px 0 0 0' }}>
-                            {log.calories_burned} cal
-                          </p>
-                        )}
-                        {log.rating && (
-                          <p style={{ fontSize: '14px', color: '#888', margin: '5px 0 0 0' }}>
-                            Rating: {log.rating}/5
-                          </p>
-                        )}
-                      </div>
+              {logs.map((log) => (
+                <div key={log.id} className="card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                    <div>
+                      <h4 style={{ color: '#4CAF50', marginBottom: '5px' }}>
+                        {log.workout_day?.name || 'Workout'}
+                      </h4>
+                      <p className="muted-text">{new Date(log.date).toLocaleDateString()}</p>
                     </div>
-                    {log.notes && (
-                      <p style={{ color: '#666', fontSize: '14px', marginTop: '10px', fontStyle: 'italic' }}>
-                        "{log.notes}"
-                      </p>
-                    )}
+                    <div style={{ textAlign: 'right' }}>
+                      {log.duration_minutes && <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#2e7d32', margin: 0 }}>{log.duration_minutes} min</p>}
+                      {log.rating && <p className="muted-text">Rating: {log.rating}/5</p>}
+                    </div>
                   </div>
-                );
-              })}
+                  {log.notes && <p style={{ color: '#666', fontSize: '14px', marginTop: '10px', fontStyle: 'italic' }}>"{log.notes}"</p>}
+                </div>
+              ))}
             </div>
           )}
         </div>
       )}
 
-      {/* Analytics Tab */}
-      {activeTab === 'analytics' && (
+      {activeTab === 'inventory' && (
         <div>
-          <div className="card" style={{ marginBottom: '16px' }}>
-            <h3 style={{ marginBottom: '8px' }}>Workout Analytics Filters</h3>
-            <p style={{ color: '#666', fontSize: '14px', marginBottom: '14px' }}>
-              View progress charts by day, week, month, or year.
-            </p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Period</label>
-                <select
-                  value={analyticsFilters.period}
-                  onChange={(e) => setAnalyticsFilters((prev) => ({ ...prev, period: e.target.value }))}
-                >
-                  {PERIOD_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option.charAt(0).toUpperCase() + option.slice(1)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Start Date (optional)</label>
-                <input
-                  type="date"
-                  value={analyticsFilters.start_date}
-                  onChange={(e) => setAnalyticsFilters((prev) => ({ ...prev, start_date: e.target.value }))}
-                />
-              </div>
-
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>End Date (optional)</label>
-                <input
-                  type="date"
-                  value={analyticsFilters.end_date}
-                  onChange={(e) => setAnalyticsFilters((prev) => ({ ...prev, end_date: e.target.value }))}
-                />
-              </div>
-
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Days fallback (optional)</label>
-                <input
-                  type="number"
-                  min="1"
-                  placeholder="e.g. 30"
-                  value={analyticsFilters.days}
-                  onChange={(e) => setAnalyticsFilters((prev) => ({ ...prev, days: e.target.value }))}
-                />
+          <div className="card section-intro-card">
+            <div className="section-header">
+              <div>
+                <h2>Exercise Inventory</h2>
+                <p className="muted-text">Explore your current exercise library and watch the visual summaries update as filters change.</p>
               </div>
             </div>
-
-            <div style={{ marginTop: '14px', display: 'flex', gap: '10px' }}>
-              <button className="btn btn-primary" onClick={applyAnalyticsFilters}>
-                Apply Filters
-              </button>
-              <button className="btn btn-secondary" onClick={clearAnalyticsDateFilters}>
-                Clear Date Filters
-              </button>
+            <div className="stats-grid">
+              <div className="stat-card">
+                <span>Total exercises</span>
+                <strong>{exerciseInsights.totalExercises}</strong>
+              </div>
+              <div className="stat-card">
+                <span>Muscle groups</span>
+                <strong>{exerciseInsights.uniqueMuscles}</strong>
+              </div>
+              <div className="stat-card">
+                <span>Equipment types</span>
+                <strong>{exerciseInsights.uniqueEquipment}</strong>
+              </div>
+              <div className="stat-card">
+                <span>Beginner friendly</span>
+                <strong>{exerciseInsights.beginnerFriendly}</strong>
+              </div>
+            </div>
+            <div className="insight-orbit-grid">
+              <div className="orbit-card">
+                <div
+                  className="orbit-chart orbit-chart-green"
+                  style={{ '--orbit-angle': `${((topCategory?.value || 0) / maxCategoryCount) * 360}deg` }}
+                >
+                  <span>{topCategory?.value || 0}</span>
+                </div>
+                <div>
+                  <strong>Top category</strong>
+                  <p className="muted-text">{topCategory?.label || 'None yet'}</p>
+                </div>
+              </div>
+              <div className="orbit-card">
+                <div
+                  className="orbit-chart orbit-chart-blue"
+                  style={{ '--orbit-angle': `${((topDifficulty?.value || 0) / maxDifficultyCount) * 360}deg` }}
+                >
+                  <span>{topDifficulty?.value || 0}</span>
+                </div>
+                <div>
+                  <strong>Top difficulty</strong>
+                  <p className="muted-text">{topDifficulty?.label || 'None yet'}</p>
+                </div>
+              </div>
+              <div className="orbit-card">
+                <div
+                  className="orbit-chart orbit-chart-warm"
+                  style={{ '--orbit-angle': `${((topEquipment?.value || 0) / maxEquipmentCount) * 360}deg` }}
+                >
+                  <span>{topEquipment?.value || 0}</span>
+                </div>
+                <div>
+                  <strong>Top equipment</strong>
+                  <p className="muted-text">{topEquipment?.label || 'None yet'}</p>
+                </div>
+              </div>
             </div>
           </div>
 
-          {analyticsError && <div className="error-message">{analyticsError}</div>}
+          <div className="card">
+            <div className="detail-grid">
+              <div className="form-group">
+                <label>Search</label>
+                <input
+                  value={exerciseFilters.search}
+                  onChange={(e) => setExerciseFilters({ ...exerciseFilters, search: e.target.value })}
+                  placeholder="Bench press, squat..."
+                />
+              </div>
+              <div className="form-group">
+                <label>Category</label>
+                <select value={exerciseFilters.category} onChange={(e) => setExerciseFilters({ ...exerciseFilters, category: e.target.value })}>
+                  <option value="">All</option>
+                  <option value="strength">Strength</option>
+                  <option value="cardio">Cardio</option>
+                  <option value="flexibility">Flexibility</option>
+                  <option value="balance">Balance</option>
+                  <option value="sports">Sports</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Muscle Group</label>
+                <input
+                  value={exerciseFilters.muscle_group}
+                  onChange={(e) => setExerciseFilters({ ...exerciseFilters, muscle_group: e.target.value })}
+                  placeholder="Chest, legs..."
+                />
+              </div>
+              <div className="form-group">
+                <label>Difficulty</label>
+                <select value={exerciseFilters.difficulty} onChange={(e) => setExerciseFilters({ ...exerciseFilters, difficulty: e.target.value })}>
+                  <option value="">All</option>
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Equipment</label>
+                <input
+                  value={exerciseFilters.equipment}
+                  onChange={(e) => setExerciseFilters({ ...exerciseFilters, equipment: e.target.value })}
+                  placeholder="Dumbbells, barbell..."
+                />
+              </div>
+            </div>
+          </div>
 
-          {analyticsLoading ? (
-            <div className="card" style={{ textAlign: 'center' }}>
-              <p>Loading workout analytics...</p>
+          <div className="insight-board">
+            <div className="card">
+              <h3>Category spread</h3>
+              {exerciseInsights.categories.length === 0 ? (
+                <p className="muted-text">No exercises available for the current filters.</p>
+              ) : (
+                <div className="chart-list">
+                  {exerciseInsights.categories.map((item) => (
+                    <div key={item.label} className="chart-row">
+                      <span>{item.label}</span>
+                      <div className="chart-bar-track">
+                        <div className="chart-bar-fill" style={{ width: `${(item.value / maxCategoryCount) * 100}%` }} />
+                      </div>
+                      <strong>{item.value}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="card">
+              <h3>Difficulty mix</h3>
+              {exerciseInsights.difficulties.length === 0 ? (
+                <p className="muted-text">No exercise difficulty data available.</p>
+              ) : (
+                <div className="chart-list">
+                  {exerciseInsights.difficulties.map((item) => (
+                    <div key={item.label} className="chart-row">
+                      <span>{item.label}</span>
+                      <div className="chart-bar-track">
+                        <div className="chart-bar-fill chart-bar-fill-secondary" style={{ width: `${(item.value / maxDifficultyCount) * 100}%` }} />
+                      </div>
+                      <strong>{item.value}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="two-column-grid">
+            <div className="card">
+              <h3>Top equipment</h3>
+              {exerciseInsights.equipment.length === 0 ? (
+                <p className="muted-text">No equipment tags match the current filters.</p>
+              ) : (
+                <div className="chart-list">
+                  {exerciseInsights.equipment.map((item) => (
+                    <div key={item.label} className="chart-row">
+                      <span>{item.label}</span>
+                      <div className="chart-bar-track">
+                        <div className="chart-bar-fill chart-bar-fill-dark" style={{ width: `${(item.value / maxEquipmentCount) * 100}%` }} />
+                      </div>
+                      <strong>{item.value}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="card">
+              <h3>Top muscle groups</h3>
+              {exerciseInsights.muscles.length === 0 ? (
+                <p className="muted-text">No muscle-group data available.</p>
+              ) : (
+                <div className="chart-list">
+                  {exerciseInsights.muscles.map((item) => (
+                    <div key={item.label} className="chart-row">
+                      <span>{item.label}</span>
+                      <div className="chart-bar-track">
+                        <div className="chart-bar-fill chart-bar-fill-warm" style={{ width: `${(item.value / maxMuscleCount) * 100}%` }} />
+                      </div>
+                      <strong>{item.value}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {exercises.length === 0 ? (
+            <div className="card text-center">
+              <h3>No exercises found</h3>
+              <p className="muted-text">Try clearing one or more filters to bring the inventory back into view.</p>
             </div>
           ) : (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '12px', marginBottom: '16px' }}>
-                <div className="card" style={{ marginBottom: 0 }}>
-                  <p style={{ color: '#666', fontSize: '13px', marginBottom: '7px' }}>Workouts Completed</p>
-                  <p style={{ fontSize: '30px', margin: 0, color: '#2e7d32', fontWeight: 700 }}>{formatValue(totalCompleted, 0)}</p>
-                </div>
-                <div className="card" style={{ marginBottom: 0 }}>
-                  <p style={{ color: '#666', fontSize: '13px', marginBottom: '7px' }}>Total Duration</p>
-                  <p style={{ fontSize: '30px', margin: 0, color: '#2e7d32', fontWeight: 700 }}>{formatValue(totalDuration, 0)} min</p>
-                </div>
-                <div className="card" style={{ marginBottom: 0 }}>
-                  <p style={{ color: '#666', fontSize: '13px', marginBottom: '7px' }}>Average Rating</p>
-                  <p style={{ fontSize: '30px', margin: 0, color: '#2e7d32', fontWeight: 700 }}>{formatValue(avgRatingAcrossBuckets, 2)}/5</p>
-                </div>
-                <div className="card" style={{ marginBottom: 0 }}>
-                  <p style={{ color: '#666', fontSize: '13px', marginBottom: '7px' }}>Summary Endpoint Avg Rating</p>
-                  <p style={{ fontSize: '30px', margin: 0, color: '#2e7d32', fontWeight: 700 }}>{formatValue(workoutSummary?.average_rating, 2)}/5</p>
-                </div>
-              </div>
-
-              <MetricBarChart
-                title="Workouts Completed by Bucket"
-                data={workoutSeries}
-                valueKey="workouts_completed"
-                color="#4CAF50"
-              />
-
-              <MetricBarChart
-                title="Total Duration by Bucket"
-                data={workoutSeries}
-                valueKey="total_duration_minutes"
-                color="#1b9aaa"
-                suffix="m"
-              />
-
-              <MetricBarChart
-                title="Average Rating by Bucket"
-                data={workoutSeries}
-                valueKey="average_rating"
-                color="#f39c12"
-              />
-
-              <div className="card">
-                <h3 style={{ marginBottom: '12px' }}>Workout Analytics Data Table</h3>
-                {workoutSeries.length === 0 ? (
-                  <p style={{ color: '#666' }}>No chart rows returned for the selected range.</p>
-                ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr style={{ backgroundColor: '#f2f4f7' }}>
-                          <th style={{ textAlign: 'left', padding: '10px', borderBottom: '1px solid #ddd' }}>Bucket</th>
-                          <th style={{ textAlign: 'left', padding: '10px', borderBottom: '1px solid #ddd' }}>Completed</th>
-                          <th style={{ textAlign: 'left', padding: '10px', borderBottom: '1px solid #ddd' }}>Duration (min)</th>
-                          <th style={{ textAlign: 'left', padding: '10px', borderBottom: '1px solid #ddd' }}>Avg Rating</th>
-                          <th style={{ textAlign: 'left', padding: '10px', borderBottom: '1px solid #ddd' }}>Avg Duration/Workout</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {workoutSeries.map((point, index) => {
-                          const completed = toNumber(point.workouts_completed);
-                          const duration = toNumber(point.total_duration_minutes);
-                          const avgDuration = completed > 0 ? duration / completed : 0;
-
-                          return (
-                            <tr key={`${point.bucket}-${index}`}>
-                              <td style={{ padding: '10px', borderBottom: '1px solid #eee' }}>{point.bucket}</td>
-                              <td style={{ padding: '10px', borderBottom: '1px solid #eee' }}>{formatValue(completed, 0)}</td>
-                              <td style={{ padding: '10px', borderBottom: '1px solid #eee' }}>{formatValue(duration, 0)}</td>
-                              <td style={{ padding: '10px', borderBottom: '1px solid #eee' }}>{formatValue(point.average_rating, 2)}</td>
-                              <td style={{ padding: '10px', borderBottom: '1px solid #eee' }}>{formatValue(avgDuration, 1)} min</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+            <div className="exercise-card-grid">
+              {exercises.map((exercise) => (
+                <div key={exercise.id} className="card exercise-card">
+                  <div className="exercise-card-header">
+                    <h3>{exercise.name}</h3>
+                    <span className="badge">{exercise.category || 'general'}</span>
                   </div>
-                )}
-              </div>
-            </>
+                  <p className="muted-text">{exercise.description || 'No description available.'}</p>
+                  <div className="badge-group exercise-badge-group">
+                    <span className="badge">Muscle {exercise.muscle_group || '--'}</span>
+                    <span className="badge">Equipment {exercise.equipment || '--'}</span>
+                    <span className="badge">Difficulty {exercise.difficulty || '--'}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
+        </div>
+      )}
+
+      {activeTab === 'templates' && (
+        <div>
+          <div className="card">
+            <div className="detail-grid">
+              <div className="form-group">
+                <label>Goal</label>
+                <input value={templateFilters.goal} onChange={(e) => setTemplateFilters({ ...templateFilters, goal: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Difficulty</label>
+                <select value={templateFilters.difficulty} onChange={(e) => setTemplateFilters({ ...templateFilters, difficulty: e.target.value })}>
+                  <option value="">All</option>
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Plan Type</label>
+                <input value={templateFilters.plan_type} onChange={(e) => setTemplateFilters({ ...templateFilters, plan_type: e.target.value })} />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gap: '15px' }}>
+            {templates.length === 0 ? (
+              <div className="card"><p className="muted-text">No approved workout templates available yet.</p></div>
+            ) : (
+              templates.map((template) => (
+                <div key={template.id} className="card">
+                  <h3>{template.name}</h3>
+                  <p className="muted-text">{template.description}</p>
+                  <div className="badge-group" style={{ marginTop: '10px' }}>
+                    {template.goal && <span className="badge">{template.goal}</span>}
+                    {template.difficulty && <span className="badge">{template.difficulty}</span>}
+                    {template.plan_type && <span className="badge">{template.plan_type}</span>}
+                    {template.duration_weeks && <span className="badge">{template.duration_weeks} weeks</span>}
+                  </div>
+                  <button className="btn btn-primary" style={{ marginTop: '14px' }} onClick={() => customizeTemplate(template)}>
+                    Customize Template
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'calendar' && (
+        <div className="two-column-grid">
+          <div className="card">
+            <h3>Assign plan to day</h3>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                workoutsAPI.createAssignment(assignmentForm).then(loadData).catch(() => alert('Failed to assign workout'));
+              }}
+            >
+              <div className="form-group">
+                <label>Plan</label>
+                <select value={assignmentForm.plan_id} onChange={(e) => setAssignmentForm({ ...assignmentForm, plan_id: e.target.value })}>
+                  <option value="">Select a plan</option>
+                  {plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Date</label>
+                <input type="date" value={assignmentForm.assigned_date} onChange={(e) => setAssignmentForm({ ...assignmentForm, assigned_date: e.target.value })} />
+              </div>
+              <button type="submit" className="btn btn-primary">Assign Plan</button>
+            </form>
+          </div>
+          <div className="card">
+            <h3>Active plans this month</h3>
+            {calendar.plans?.length === 0 ? (
+              <p className="muted-text">No active plans found.</p>
+            ) : (
+              calendar.plans.map((plan) => (
+                <div key={plan.id} className="list-row">
+                  <div>
+                    <strong>{plan.name}</strong>
+                    <p className="muted-text">{plan.start_date || 'No start date'} {plan.end_date ? `to ${plan.end_date}` : ''}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="card">
+            <h3>Assignments this month</h3>
+            {calendar.assignments?.length === 0 ? (
+              <p className="muted-text">No explicit assignments this month.</p>
+            ) : (
+              calendar.assignments.map((assignment) => (
+                <div key={assignment.id} className="list-row">
+                  <div>
+                    <strong>{assignment.assigned_date}</strong>
+                    <p className="muted-text">{assignment.plan?.name}</p>
+                  </div>
+                  <button className="btn btn-danger" onClick={() => workoutsAPI.deleteAssignment(assignment.id).then(loadData)}>
+                    Remove
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="card">
+            <h3>Completed workouts this month</h3>
+            {calendar.logs?.length === 0 ? (
+              <p className="muted-text">No workout logs this month.</p>
+            ) : (
+              calendar.logs.map((log) => (
+                <div key={log.id} className="list-row">
+                  <div>
+                    <strong>{log.date}</strong>
+                    <p className="muted-text">{log.duration_minutes || 0} minutes</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       )}
     </div>

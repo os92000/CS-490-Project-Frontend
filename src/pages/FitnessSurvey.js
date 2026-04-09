@@ -4,14 +4,10 @@ import { surveysAPI } from '../services/api';
 
 const FitnessSurvey = () => {
   const [formData, setFormData] = useState({
+    age: '',
+    weight: '',
     fitness_level: '',
-    primary_goal: '',
-    experience_years: '',
-    preferred_workout_type: '',
-    equipment_access: '',
-    workout_frequency: '',
-    health_conditions: '',
-    additional_notes: '',
+    goals: '',
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -32,8 +28,8 @@ const FitnessSurvey = () => {
     setIsLoading(true);
 
     // Validation
-    if (!formData.fitness_level || !formData.primary_goal) {
-      setError('Please fill in at least the fitness level and primary goal');
+    if (!formData.fitness_level || !formData.goals) {
+      setError('Please fill in at least the fitness level and goals');
       setIsLoading(false);
       return;
     }
@@ -72,6 +68,29 @@ const FitnessSurvey = () => {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
+            <label htmlFor="age">Age</label>
+            <input
+              type="number"
+              id="age"
+              name="age"
+              value={formData.age}
+              onChange={handleChange}
+              min="0"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="weight">Weight (kg)</label>
+            <input
+              type="number"
+              id="weight"
+              name="weight"
+              value={formData.weight}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="form-group">
             <label htmlFor="fitness_level">Fitness Level *</label>
             <select
               id="fitness_level"
@@ -88,94 +107,15 @@ const FitnessSurvey = () => {
           </div>
 
           <div className="form-group">
-            <label htmlFor="primary_goal">Primary Goal *</label>
-            <input
-              type="text"
-              id="primary_goal"
-              name="primary_goal"
-              value={formData.primary_goal}
+            <label htmlFor="goals">Goals *</label>
+            <textarea
+              id="goals"
+              name="goals"
+              value={formData.goals}
               onChange={handleChange}
-              placeholder="e.g., Lose weight, Build muscle, Improve endurance"
+              placeholder="e.g., Lose weight, build muscle, improve endurance"
+              rows="3"
               required
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="experience_years">Years of Experience</label>
-            <input
-              type="number"
-              id="experience_years"
-              name="experience_years"
-              value={formData.experience_years}
-              onChange={handleChange}
-              placeholder="0"
-              min="0"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="preferred_workout_type">Preferred Workout Type</label>
-            <input
-              type="text"
-              id="preferred_workout_type"
-              name="preferred_workout_type"
-              value={formData.preferred_workout_type}
-              onChange={handleChange}
-              placeholder="e.g., Weightlifting, Cardio, Yoga, CrossFit"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="equipment_access">Equipment Access</label>
-            <select
-              id="equipment_access"
-              name="equipment_access"
-              value={formData.equipment_access}
-              onChange={handleChange}
-            >
-              <option value="">Select equipment access</option>
-              <option value="home">Home gym</option>
-              <option value="commercial">Commercial gym</option>
-              <option value="minimal">Minimal equipment</option>
-              <option value="none">No equipment</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="workout_frequency">Workout Frequency (per week)</label>
-            <input
-              type="number"
-              id="workout_frequency"
-              name="workout_frequency"
-              value={formData.workout_frequency}
-              onChange={handleChange}
-              placeholder="3"
-              min="0"
-              max="7"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="health_conditions">Health Conditions or Injuries</label>
-            <textarea
-              id="health_conditions"
-              name="health_conditions"
-              value={formData.health_conditions}
-              onChange={handleChange}
-              placeholder="Please list any health conditions or injuries we should know about"
-              rows="3"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="additional_notes">Additional Notes</label>
-            <textarea
-              id="additional_notes"
-              name="additional_notes"
-              value={formData.additional_notes}
-              onChange={handleChange}
-              placeholder="Any other information you'd like to share"
-              rows="3"
             />
           </div>
 

@@ -11,13 +11,16 @@ const Chat = () => {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [socket, setSocket] = useState(null);
+  const [reportReason, setReportReason] = useState('');
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
     loadConversations();
 
     // Initialize Socket.IO connection
-    const newSocket = io('http://127.0.0.1:5000');
+    const newSocket = io(window.location.origin, {
+      path: '/socket.io'
+    });
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
@@ -92,6 +95,21 @@ const Chat = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const reportConversation = async () => {
+    if (!selectedConversation || !reportReason.trim()) return;
+    try {
+      await chatAPI.reportConversation({
+        relationship_id: selectedConversation.relationship_id,
+        reason: reportReason,
+      });
+      setReportReason('');
+      alert('Conversation reported.');
+    } catch (error) {
+      console.error('Failed to report conversation:', error);
+      alert('Failed to report conversation.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="container" style={{ textAlign: 'center', marginTop: '50px' }}>
@@ -158,6 +176,18 @@ const Chat = () => {
                 <p style={{ color: '#666', fontSize: '14px' }}>
                   {selectedConversation.other_user.type === 'coach' ? 'Your Coach' : 'Your Client'}
                 </p>
+                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                  <input
+                    type="text"
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    placeholder="Report reason"
+                    style={{ maxWidth: '220px' }}
+                  />
+                  <button type="button" className="btn btn-danger" onClick={reportConversation}>
+                    Report Chat
+                  </button>
+                </div>
               </div>
 
               {/* Messages */}

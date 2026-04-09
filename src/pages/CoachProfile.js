@@ -14,6 +14,7 @@ const CoachProfile = () => {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [sendingRequest, setSendingRequest] = useState(false);
+  const [reportForm, setReportForm] = useState({ reason: '', details: '' });
 
   useEffect(() => {
     loadCoachData();
@@ -72,6 +73,17 @@ const CoachProfile = () => {
       );
     }
     return stars;
+  };
+
+  const handleReportCoach = async (e) => {
+    e.preventDefault();
+    try {
+      await coachesAPI.reportCoach(coachId, reportForm);
+      setSuccessMessage('Coach reported successfully.');
+      setReportForm({ reason: '', details: '' });
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to report coach.');
+    }
   };
 
   const getDayName = (dayNum) => {
@@ -316,6 +328,31 @@ const CoachProfile = () => {
           </div>
         )}
       </div>
+
+      {user?.id !== parseInt(coachId) && (
+        <div className="card" style={{ marginTop: '30px' }}>
+          <h2>Report Coach</h2>
+          <form onSubmit={handleReportCoach}>
+            <div className="form-group">
+              <label>Reason</label>
+              <input
+                value={reportForm.reason}
+                onChange={(e) => setReportForm({ ...reportForm, reason: e.target.value })}
+                placeholder="Misleading profile, abuse, spam..."
+              />
+            </div>
+            <div className="form-group">
+              <label>Details</label>
+              <textarea
+                rows="4"
+                value={reportForm.details}
+                onChange={(e) => setReportForm({ ...reportForm, details: e.target.value })}
+              />
+            </div>
+            <button type="submit" className="btn btn-danger">Submit Report</button>
+          </form>
+        </div>
+      )}
     </div>
   );
 };

@@ -14,13 +14,12 @@ import MyClients from './pages/MyClients';
 import Chat from './pages/Chat';
 import MyWorkouts from './pages/MyWorkouts';
 import CreateWorkoutPlan from './pages/CreateWorkoutPlan';
-import CoachProfileSettings from './pages/CoachProfileSettings';
-import CoachAvailabilitySettings from './pages/CoachAvailabilitySettings';
-import CoachPricingSettings from './pages/CoachPricingSettings';
-import LandingPage from './pages/LandingPage';
-import TopCoachesPage from './pages/TopCoachesPage';
+import Nutrition from './pages/Nutrition';
+import Analytics from './pages/Analytics';
+import Profile from './pages/Profile';
+import CoachSettings from './pages/CoachSettings';
 import AdminDashboard from './pages/AdminDashboard';
-import AccountSettings from './pages/AccountSettings';
+import ClientProgress from './pages/ClientProgress';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireAuth = true, redirectTo = '/login' }) => {
@@ -49,9 +48,6 @@ function App() {
       {isAuthenticated && <Navbar />}
 
       <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/top-coaches" element={<TopCoachesPage />} />
-
         {/* Public routes (redirect to dashboard if logged in) */}
         <Route
           path="/login"
@@ -129,30 +125,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/coach/profile"
-          element={
-            <ProtectedRoute>
-              <CoachProfileSettings />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/coach/availability"
-          element={
-            <ProtectedRoute>
-              <CoachAvailabilitySettings />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/coach/pricing"
-          element={
-            <ProtectedRoute>
-              <CoachPricingSettings />
-            </ProtectedRoute>
-          }
-        />
 
         {/* Chat Route */}
         <Route
@@ -181,18 +153,38 @@ function App() {
             </ProtectedRoute>
           }
         />
-
-        {/* Account Settings (all logged-in users) */}
         <Route
-          path="/account"
+          path="/nutrition"
           element={
             <ProtectedRoute>
-              <AccountSettings />
+              <Nutrition />
             </ProtectedRoute>
           }
         />
-
-        {/* Admin Routes */}
+        <Route
+          path="/analytics"
+          element={
+            <ProtectedRoute>
+              <Analytics />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/coach-settings"
+          element={
+            <ProtectedRoute>
+              <CoachSettings />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/admin"
           element={
@@ -201,6 +193,17 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/clients/:clientId"
+          element={
+            <ProtectedRoute>
+              <ClientProgress />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Default redirect */}
+        <Route path="/" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} />
 
         {/* 404 catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
