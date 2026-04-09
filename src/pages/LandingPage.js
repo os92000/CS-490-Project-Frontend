@@ -1,9 +1,51 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { coachesAPI } from '../services/api';
+
+const displayName = (c) =>
+  c.profile?.first_name && c.profile?.last_name
+    ? `${c.profile.first_name} ${c.profile.last_name}`
+    : c.profile?.first_name || c.email?.split('@')[0] || 'Coach';
+
+const Stars = ({ value }) => {
+  const rounded = Math.round(value || 0);
+  return (
+    <span>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <span key={i} style={{ color: i <= rounded ? '#FFD700' : '#ddd' }}>
+          ★
+        </span>
+      ))}
+    </span>
+  );
+};
 
 const LandingPage = () => {
   const { isAuthenticated, loading } = useAuth();
+  const [topCoaches, setTopCoaches] = useState([]);
+  const [coachesLoading, setCoachesLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await coachesAPI.getPublicTopCoaches({ limit: 5 });
+        if (cancelled) return;
+        if (res.data.success) {
+          setTopCoaches(res.data.data.coaches || []);
+        }
+      } catch (err) {
+        // Non-fatal: just hide the section if it fails
+        console.warn('Could not load top coaches:', err);
+      } finally {
+        if (!cancelled) setCoachesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (loading) {
     return <div className="loading">Loading...</div>;
@@ -52,6 +94,116 @@ const LandingPage = () => {
             </Link>
           </div>
         </section>
+
+        {/* Top 5 Coaches */}
+        {!coachesLoading && topCoaches.length > 0 && (
+          <section style={{ marginBottom: 32 }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'baseline',
+                marginBottom: 16,
+                flexWrap: 'wrap',
+                gap: 8,
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: '1.35rem' }}>Top coaches</h2>
+              <Link
+                to="/top-coaches"
+                style={{ color: '#4CAF50', fontWeight: 600, textDecoration: 'none', fontSize: 14 }}
+              >
+                See all →
+              </Link>
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: 16,
+              }}
+            >
+              {topCoaches.map((c) => {
+                const name = displayName(c);
+                const avg = c.rating?.average;
+                const count = c.rating?.count ?? 0;
+                const bio = c.coach_info?.bio;
+                return (
+                  <div key={c.id} className="card" style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div
+                        style={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: '50%',
+                          backgroundColor: '#4CAF50',
+                          color: '#fff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 20,
+                          fontWeight: 600,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {(name[0] || '?').toUpperCase()}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <h3
+                          style={{
+                            margin: 0,
+                            fontSize: '1rem',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {name}
+                        </h3>
+                        <div style={{ fontSize: 13, color: '#666' }}>
+                          <Stars value={avg} />
+                          <span style={{ marginLeft: 6 }}>
+                            {avg != null ? avg.toFixed(1) : '0.0'} ({count})
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    {bio && (
+                      <p
+                        style={{
+                          color: '#555',
+                          fontSize: 13,
+                          lineHeight: 1.5,
+                          margin: 0,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {bio}
+                      </p>
+                    )}
+                    <Link
+                      to="/signup"
+                      className="btn btn-primary"
+                      style={{
+                        textDecoration: 'none',
+                        textAlign: 'center',
+                        marginTop: 'auto',
+                        padding: '8px 12px',
+                        fontSize: 14,
+                      }}
+                    >
+                      Sign up to connect
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         <section className="card" style={{ marginBottom: 24 }}>
           <h2 style={{ marginBottom: 16, fontSize: '1.15rem' }}>What you can do here</h2>

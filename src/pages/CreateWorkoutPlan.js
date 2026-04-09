@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { coachesAPI, workoutsAPI } from '../services/api';
 
+const SELF_PLAN_VALUE = 'self';
+
 const CreateWorkoutPlan = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -12,32 +14,45 @@ const CreateWorkoutPlan = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
+  const canCoach = user && (user.role === 'coach' || user.role === 'both');
+
+  // client_id of SELF_PLAN_VALUE means "creating for myself"
   const [planForm, setPlanForm] = useState({
     name: '',
     description: '',
-    client_id: '',
+    client_id: SELF_PLAN_VALUE,
     start_date: '',
     end_date: '',
-    days: []
+    days: [],
   });
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadData = async () => {
     try {
-      // Load coach's clients
-      const clientsRes = await coachesAPI.getMyClients();
-      if (clientsRes.data.success) {
-        const activeClients = clientsRes.data.data.clients.filter(c => c.status === 'active');
-        setClients(activeClients);
+      // Only coaches can load client lists
+      if (canCoach) {
+        try {
+          const clientsRes = await coachesAPI.getMyClients();
+          if (clientsRes.data.success) {
+            const activeClients = (clientsRes.data.data.clients || []).filter(
+              (c) => c.status === 'active'
+            );
+            setClients(activeClients);
+          }
+        } catch (err) {
+          // Not fatal — just means the user has no clients or isn't treated as a coach
+          console.warn('Could not load clients:', err);
+        }
       }
 
-      // Load exercises
+      // Load exercises for the dropdowns
       const exercisesRes = await workoutsAPI.getExercises();
       if (exercisesRes.data.success) {
-        setExercises(exercisesRes.data.data.exercises);
+        setExercises(exercisesRes.data.data.exercises || []);
       }
 
       setLoading(false);
@@ -57,9 +72,9 @@ const CreateWorkoutPlan = () => {
           name: `Day ${planForm.days.length + 1}`,
           day_number: planForm.days.length + 1,
           notes: '',
-          exercises: []
-        }
-      ]
+          exercises: [],
+        },
+      ],
     });
   };
 
@@ -82,14 +97,16 @@ const CreateWorkoutPlan = () => {
       reps: '10',
       weight: 'bodyweight',
       rest_seconds: 60,
-      notes: ''
+      notes: '',
     });
     setPlanForm({ ...planForm, days: newDays });
   };
 
   const removeExerciseFromDay = (dayIndex, exerciseIndex) => {
     const newDays = [...planForm.days];
-    newDays[dayIndex].exercises = newDays[dayIndex].exercises.filter((_, index) => index !== exerciseIndex);
+    newDays[dayIndex].exercises = newDays[dayIndex].exercises.filter(
+      (_, index) => index !== exerciseIndex
+    );
     setPlanForm({ ...planForm, days: newDays });
   };
 
@@ -104,22 +121,50 @@ const CreateWorkoutPlan = () => {
     setSuccessMessage('');
     setErrorMessage('');
 
-    if (!planForm.client_id) {
-      setErrorMessage('Please select a client');
+    if (!planForm.name.trim()) {
+      setErrorMessage('Plan name is required');
       return;
     }
 
+    // Build the payload. For a self-plan, omit client_id so the backend uses current user.
+    const payload = {
+      name: planForm.name.trim(),
+      description: planForm.description || null,
+      start_date: planForm.start_date || null,
+      end_date: planForm.end_date || null,
+      days: planForm.days,
+    };
+
+    if (planForm.client_id && planForm.client_id !== SELF_PLAN_VALUE) {
+      payload.client_id = planForm.client_id;
+    }
+
     try {
-      const response = await workoutsAPI.createWorkoutPlan(planForm);
+      const response = await workoutsAPI.createWorkoutPlan(payload);
       if (response.data.success) {
         setSuccessMessage('Workout plan created successfully!');
         setTimeout(() => {
-          navigate('/my-clients');
-        }, 2000);
+          // Coaches creating for a client go back to My Clients; everyone else
+          // goes back to their workouts page.
+          if (
+            canCoach &&
+            planForm.client_id &&
+            planForm.client_id !== SELF_PLAN_VALUE
+          ) {
+            navigate('/my-clients');
+          } else {
+            navigate('/my-workouts');
+          }
+        }, 1500);
       }
     } catch (error) {
       console.error('Error creating workout plan:', error);
-      setErrorMessage(error.response?.data?.message || 'Failed to create workout plan');
+      const responseData = error.response?.data;
+      const serverMessage = responseData?.message || 'Failed to create workout plan';
+      const serverDetail = responseData?.error;
+      setErrorMessage(
+        serverDetail ? `${serverMessage}: ${serverDetail}` : serverMessage
+      );
     }
   };
 
@@ -136,13 +181,19 @@ const CreateWorkoutPlan = () => {
       <h1>Create Workout Plan</h1>
 
       {successMessage && (
-        <div className="card" style={{ backgroundColor: '#d4edda', borderColor: '#c3e6cb', marginBottom: '20px' }}>
+        <div
+          className="card"
+          style={{ backgroundColor: '#d4edda', borderColor: '#c3e6cb', marginBottom: '20px' }}
+        >
           <p style={{ color: '#155724', margin: 0 }}>{successMessage}</p>
         </div>
       )}
 
       {errorMessage && (
-        <div className="card" style={{ backgroundColor: '#f8d7da', borderColor: '#f5c6cb', marginBottom: '20px' }}>
+        <div
+          className="card"
+          style={{ backgroundColor: '#f8d7da', borderColor: '#f5c6cb', marginBottom: '20px' }}
+        >
           <p style={{ color: '#721c24', margin: 0 }}>{errorMessage}</p>
         </div>
       )}
@@ -152,22 +203,44 @@ const CreateWorkoutPlan = () => {
         <div className="card">
           <h3>Plan Details</h3>
 
-          <div className="form-group">
-            <label>Client *</label>
-            <select
-              className="input"
-              value={planForm.client_id}
-              onChange={(e) => setPlanForm({ ...planForm, client_id: e.target.value })}
-              required
-            >
-              <option value="">Select a client</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.profile?.first_name || client.email}
-                </option>
-              ))}
-            </select>
-          </div>
+          {canCoach && clients.length > 0 && (
+            <div className="form-group">
+              <label>Plan For *</label>
+              <select
+                className="input"
+                value={planForm.client_id}
+                onChange={(e) => setPlanForm({ ...planForm, client_id: e.target.value })}
+              >
+                <option value={SELF_PLAN_VALUE}>Myself</option>
+                {clients.map((client) => {
+                  const name =
+                    [client.profile?.first_name, client.profile?.last_name]
+                      .filter(Boolean)
+                      .join(' ') || client.email;
+                  return (
+                    <option key={client.id} value={client.id}>
+                      {name}
+                    </option>
+                  );
+                })}
+              </select>
+              <small style={{ color: '#666', fontSize: '12px' }}>
+                Choose who this plan is for. Select "Myself" to build a personal plan.
+              </small>
+            </div>
+          )}
+
+          {canCoach && clients.length === 0 && (
+            <p style={{ color: '#666', fontSize: '14px', marginBottom: '15px' }}>
+              You have no active clients yet. This plan will be saved for yourself.
+            </p>
+          )}
+
+          {!canCoach && (
+            <p style={{ color: '#666', fontSize: '14px', marginBottom: '15px' }}>
+              This plan will be saved as your own personal plan.
+            </p>
+          )}
 
           <div className="form-group">
             <label>Plan Name *</label>
@@ -217,7 +290,14 @@ const CreateWorkoutPlan = () => {
 
         {/* Workout Days */}
         <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '20px',
+            }}
+          >
             <h3>Workout Days</h3>
             <button type="button" className="btn btn-primary" onClick={addDay}>
               + Add Day
@@ -230,8 +310,23 @@ const CreateWorkoutPlan = () => {
             </p>
           ) : (
             planForm.days.map((day, dayIndex) => (
-              <div key={dayIndex} style={{ marginBottom: '25px', padding: '20px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <div
+                key={dayIndex}
+                style={{
+                  marginBottom: '25px',
+                  padding: '20px',
+                  backgroundColor: '#f9f9f9',
+                  borderRadius: '8px',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '15px',
+                  }}
+                >
                   <h4 style={{ margin: 0 }}>Day {dayIndex + 1}</h4>
                   <button
                     type="button"
@@ -267,34 +362,69 @@ const CreateWorkoutPlan = () => {
 
                 {/* Exercises */}
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px', marginBottom: '10px' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginTop: '15px',
+                      marginBottom: '10px',
+                    }}
+                  >
                     <strong>Exercises</strong>
                     <button
                       type="button"
                       className="btn btn-primary"
                       onClick={() => addExerciseToDay(dayIndex)}
                       style={{ padding: '5px 15px', fontSize: '14px' }}
+                      disabled={exercises.length === 0}
                     >
                       + Add Exercise
                     </button>
                   </div>
 
-                  {day.exercises.length === 0 ? (
-                    <p style={{ color: '#888', fontSize: '14px', fontStyle: 'italic' }}>No exercises added yet</p>
+                  {exercises.length === 0 ? (
+                    <p style={{ color: '#888', fontSize: '14px', fontStyle: 'italic' }}>
+                      No exercises available in the database yet.
+                    </p>
+                  ) : day.exercises.length === 0 ? (
+                    <p style={{ color: '#888', fontSize: '14px', fontStyle: 'italic' }}>
+                      No exercises added yet
+                    </p>
                   ) : (
                     day.exercises.map((exercise, exIndex) => (
-                      <div key={exIndex} style={{ padding: '15px', backgroundColor: 'white', borderRadius: '5px', marginBottom: '10px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '10px' }}>
+                      <div
+                        key={exIndex}
+                        style={{
+                          padding: '15px',
+                          backgroundColor: 'white',
+                          borderRadius: '5px',
+                          marginBottom: '10px',
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'start',
+                            marginBottom: '10px',
+                          }}
+                        >
                           <div style={{ flex: 1 }}>
                             <label style={{ fontSize: '12px', color: '#888' }}>Exercise</label>
                             <select
                               className="input"
                               value={exercise.exercise_id}
-                              onChange={(e) => updateExercise(dayIndex, exIndex, 'exercise_id', e.target.value)}
+                              onChange={(e) =>
+                                updateExercise(dayIndex, exIndex, 'exercise_id', e.target.value)
+                              }
                               style={{ marginTop: '5px' }}
                             >
                               {exercises.map((ex) => (
-                                <option key={ex.id} value={ex.id}>{ex.name}</option>
+                                <option key={ex.id} value={ex.id}>
+                                  {ex.name}
+                                  {ex.muscle_group ? ` — ${ex.muscle_group}` : ''}
+                                </option>
                               ))}
                             </select>
                           </div>
@@ -309,21 +439,29 @@ const CreateWorkoutPlan = () => {
                               border: 'none',
                               borderRadius: '5px',
                               cursor: 'pointer',
-                              fontSize: '12px'
+                              fontSize: '12px',
                             }}
                           >
                             Remove
                           </button>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(4, 1fr)',
+                            gap: '10px',
+                          }}
+                        >
                           <div>
                             <label style={{ fontSize: '12px', color: '#888' }}>Sets</label>
                             <input
                               type="number"
                               className="input"
                               value={exercise.sets}
-                              onChange={(e) => updateExercise(dayIndex, exIndex, 'sets', e.target.value)}
+                              onChange={(e) =>
+                                updateExercise(dayIndex, exIndex, 'sets', e.target.value)
+                              }
                               style={{ marginTop: '5px' }}
                             />
                           </div>
@@ -333,7 +471,9 @@ const CreateWorkoutPlan = () => {
                               type="text"
                               className="input"
                               value={exercise.reps}
-                              onChange={(e) => updateExercise(dayIndex, exIndex, 'reps', e.target.value)}
+                              onChange={(e) =>
+                                updateExercise(dayIndex, exIndex, 'reps', e.target.value)
+                              }
                               placeholder="e.g., 10-12"
                               style={{ marginTop: '5px' }}
                             />
@@ -344,7 +484,9 @@ const CreateWorkoutPlan = () => {
                               type="text"
                               className="input"
                               value={exercise.weight}
-                              onChange={(e) => updateExercise(dayIndex, exIndex, 'weight', e.target.value)}
+                              onChange={(e) =>
+                                updateExercise(dayIndex, exIndex, 'weight', e.target.value)
+                              }
                               placeholder="e.g., 20kg"
                               style={{ marginTop: '5px' }}
                             />
@@ -355,7 +497,9 @@ const CreateWorkoutPlan = () => {
                               type="number"
                               className="input"
                               value={exercise.rest_seconds}
-                              onChange={(e) => updateExercise(dayIndex, exIndex, 'rest_seconds', e.target.value)}
+                              onChange={(e) =>
+                                updateExercise(dayIndex, exIndex, 'rest_seconds', e.target.value)
+                              }
                               style={{ marginTop: '5px' }}
                             />
                           </div>
@@ -367,7 +511,9 @@ const CreateWorkoutPlan = () => {
                             type="text"
                             className="input"
                             value={exercise.notes}
-                            onChange={(e) => updateExercise(dayIndex, exIndex, 'notes', e.target.value)}
+                            onChange={(e) =>
+                              updateExercise(dayIndex, exIndex, 'notes', e.target.value)
+                            }
                             placeholder="Exercise-specific instructions"
                             style={{ marginTop: '5px' }}
                           />
@@ -386,7 +532,7 @@ const CreateWorkoutPlan = () => {
           <button
             type="button"
             className="btn btn-secondary"
-            onClick={() => navigate('/my-clients')}
+            onClick={() => navigate(-1)}
             style={{ marginRight: '10px' }}
           >
             Cancel

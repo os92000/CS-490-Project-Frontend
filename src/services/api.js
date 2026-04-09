@@ -90,6 +90,8 @@ export const usersAPI = {
   updateProfile: (userId, data) => api.put(`/users/${userId}/profile`, data),
   getAllUsers: (params) => api.get('/users', { params }),
   deleteAccount: (userId) => api.delete(`/users/${userId}`),
+  submitRoleRequest: (data) => api.post('/users/role-requests', data),
+  getMyRoleRequest: () => api.get('/users/role-requests/me'),
 };
 
 // ============================================
@@ -146,6 +148,9 @@ export const workoutsAPI = {
   getExercises: (params) => api.get('/workouts/exercises', { params }),
   createExercise: (data) => api.post('/workouts/exercises', data),
 
+  // Workout Library (placeholder workouts)
+  getWorkoutLibrary: (params) => api.get('/workouts/library', { params }),
+
   // Workout Plans
   getWorkoutPlans: (params) => api.get('/workouts/plans', { params }),
   getWorkoutPlan: (planId) => api.get(`/workouts/plans/${planId}`),
@@ -186,6 +191,19 @@ export const analyticsAPI = {
   getCharts: (params) => api.get('/analytics/charts', { params: normalizeAnalyticsParams(params) }),
   getWorkoutSummary: (params) => api.get('/analytics/workout-summary', { params: normalizeAnalyticsParams(params) }),
   getProgress: (params) => api.get('/analytics/progress', { params: normalizeAnalyticsParams(params) }),
+};
+
+// ============================================
+// Admin APIs
+// ============================================
+
+export const adminAPI = {
+  createUser: (data) => api.post('/admin/users', data),
+  listUsers: (params) => api.get('/admin/users', { params }),
+  updateUser: (userId, data) => api.put(`/admin/users/${userId}`, data),
+  deleteUser: (userId) => api.delete(`/admin/users/${userId}`),
+  listRoleRequests: (params) => api.get('/admin/role-requests', { params }),
+  respondToRoleRequest: (requestId, data) => api.patch(`/admin/role-requests/${requestId}`, data),
 };
 
 export default api;

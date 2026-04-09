@@ -23,6 +23,18 @@ const Navbar = () => {
             <Link to="/dashboard">Dashboard</Link>
           </li>
 
+          {user && user.role !== 'admin' && (
+            <li>
+              <Link to="/account">Account</Link>
+            </li>
+          )}
+
+          {user?.role === 'admin' && (
+            <li>
+              <Link to="/admin">Admin</Link>
+            </li>
+          )}
+
           {user && (
             <>
               <li>

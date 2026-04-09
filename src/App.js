@@ -19,6 +19,8 @@ import CoachAvailabilitySettings from './pages/CoachAvailabilitySettings';
 import CoachPricingSettings from './pages/CoachPricingSettings';
 import LandingPage from './pages/LandingPage';
 import TopCoachesPage from './pages/TopCoachesPage';
+import AdminDashboard from './pages/AdminDashboard';
+import AccountSettings from './pages/AccountSettings';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireAuth = true, redirectTo = '/login' }) => {
@@ -176,6 +178,26 @@ function App() {
           element={
             <ProtectedRoute>
               <CreateWorkoutPlan />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Account Settings (all logged-in users) */}
+        <Route
+          path="/account"
+          element={
+            <ProtectedRoute>
+              <AccountSettings />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Admin Routes */}
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <AdminDashboard />
             </ProtectedRoute>
           }
         />
