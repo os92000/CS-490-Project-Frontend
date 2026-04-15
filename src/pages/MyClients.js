@@ -7,239 +7,117 @@ const MyClients = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [activeTab, setActiveTab] = useState('clients'); // 'clients' or 'requests'
-
+  const [success, setSuccess] = useState('');
+  const [activeTab, setActiveTab] = useState('clients');
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      setError('');
-
-      // Load clients
-      const clientsResponse = await coachesAPI.getMyClients();
-      if (clientsResponse.data.success) {
-        setClients(clientsResponse.data.data.clients);
-      }
-
-      // Load pending requests
-      const requestsResponse = await coachesAPI.getMyRequests('received');
-      if (requestsResponse.data.success) {
-        setRequests(requestsResponse.data.data.requests.filter(r => r.status === 'pending'));
-      }
-    } catch (err) {
-      console.error('Failed to load data:', err);
-      setError('Failed to load clients. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+      const [cr, rr] = await Promise.all([
+        coachesAPI.getMyClients(),
+        coachesAPI.getMyRequests('received'),
+      ]);
+      if (cr.data.success) setClients(cr.data.data.clients);
+      if (rr.data.success) setRequests(rr.data.data.requests.filter(r => r.status === 'pending'));
+    } catch { setError('Failed to load client data.'); }
+    finally { setLoading(false); }
   };
 
-  const handleRequestResponse = async (requestId, status) => {
+  const respond = async (id, status) => {
     try {
-      setError('');
-      setSuccessMessage('');
-
-      const response = await coachesAPI.respondToRequest(requestId, status);
-
-      if (response.data.success) {
-        setSuccessMessage(`Request ${status} successfully!`);
-        loadData(); // Reload data
-      }
-    } catch (err) {
-      console.error('Failed to respond to request:', err);
-      setError(err.response?.data?.message || 'Failed to respond to request.');
-    }
+      setError(''); setSuccess('');
+      const res = await coachesAPI.respondToRequest(id, status);
+      if (res.data.success) { setSuccess(`Request ${status}!`); loadData(); }
+    } catch (err) { setError(err.response?.data?.message || 'Failed to respond.'); }
   };
+
+  const initials = (p, e) => ((p?.first_name?.[0] || e?.[0] || '?')).toUpperCase();
+  const fullName = (p, e) => p?.first_name && p?.last_name ? `${p.first_name} ${p.last_name}` : p?.first_name || e || 'Client';
 
   return (
-    <div className="container" style={{ maxWidth: '1000px', marginTop: '30px' }}>
-      <h1>My Clients</h1>
-      <p style={{ color: '#666', marginBottom: '30px' }}>
-        Manage your clients and respond to hire requests
-      </p>
-
-      {error && <div className="error-message">{error}</div>}
-      {successMessage && <div className="success-message">{successMessage}</div>}
-
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '30px', borderBottom: '2px solid #eee' }}>
-        <button
-          onClick={() => setActiveTab('clients')}
-          style={{
-            padding: '15px 30px',
-            border: 'none',
-            background: 'none',
-            cursor: 'pointer',
-            fontWeight: activeTab === 'clients' ? 'bold' : 'normal',
-            borderBottom: activeTab === 'clients' ? '3px solid #4CAF50' : 'none',
-            color: activeTab === 'clients' ? '#4CAF50' : '#666',
-          }}
-        >
-          Active Clients ({clients.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('requests')}
-          style={{
-            padding: '15px 30px',
-            border: 'none',
-            background: 'none',
-            cursor: 'pointer',
-            fontWeight: activeTab === 'requests' ? 'bold' : 'normal',
-            borderBottom: activeTab === 'requests' ? '3px solid #4CAF50' : 'none',
-            color: activeTab === 'requests' ? '#4CAF50' : '#666',
-          }}
-        >
-          Pending Requests ({requests.length})
-        </button>
+    <div className="container page-shell">
+      <div className="page-hero fade-up">
+        <div className="hero-copy">
+          <p className="eyebrow">Coach workspace</p>
+          <h1>My Clients</h1>
+          <p className="page-copy">Manage your active clients and respond to hire requests.</p>
+        </div>
       </div>
 
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '50px' }}>
-          <p>Loading...</p>
-        </div>
-      ) : (
+      {error && <div className="error-message">{error}</div>}
+      {success && <div className="success-message">{success}</div>}
+
+      <div className="flex gap-6 fade-up fade-up-1">
+        {[['clients', `Clients (${clients.length})`], ['requests', `Requests (${requests.length})`]].map(([v, label]) => (
+          <button key={v} className={`tab-button ${activeTab === v ? 'active' : ''}`} onClick={() => setActiveTab(v)}>{label}</button>
+        ))}
+      </div>
+
+      {loading ? <div className="loading">Loading…</div> : (
         <>
-          {/* Active Clients Tab */}
           {activeTab === 'clients' && (
-            <div>
-              {clients.length === 0 ? (
-                <div className="card" style={{ textAlign: 'center', padding: '50px' }}>
-                  <p style={{ color: '#666', fontSize: '18px' }}>
-                    You don't have any active clients yet.
-                  </p>
-                  <p style={{ color: '#666', marginTop: '10px' }}>
-                    Check the "Pending Requests" tab to see if any clients want to hire you.
-                  </p>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
-                  {clients.map((client) => (
-                    <div key={client.id} className="card">
-                      <div style={{ textAlign: 'center', marginBottom: '15px' }}>
-                        <div
-                          style={{
-                            width: '80px',
-                            height: '80px',
-                            borderRadius: '50%',
-                            backgroundColor: '#2196F3',
-                            color: 'white',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '36px',
-                            margin: '0 auto 15px',
-                          }}
-                        >
-                          {client.profile?.first_name?.[0] || client.email[0].toUpperCase()}
-                        </div>
-                        <h3 style={{ marginBottom: '5px' }}>
-                          {client.profile?.first_name && client.profile?.last_name
-                            ? `${client.profile.first_name} ${client.profile.last_name}`
-                            : 'Client'}
-                        </h3>
-                        <p style={{ color: '#666', fontSize: '14px' }}>
-                          {client.email}
-                        </p>
+            clients.length === 0 ? (
+              <div className="card fade-up" style={{ textAlign: 'center', padding: '60px 40px' }}>
+                <p style={{ fontSize: 40, marginBottom: 12 }}>👥</p>
+                <h3 style={{ marginBottom: 8 }}>No active clients yet</h3>
+                <p className="muted-text">Check the Requests tab — clients may be waiting for your approval.</p>
+              </div>
+            ) : (
+              <div className="coach-grid fade-up">
+                {clients.map(client => (
+                  <div key={client.id} className="card card-hover" style={{ borderRadius: 16 }}>
+                    <div className="flex items-center gap-14 mb-14">
+                      <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, var(--blue), var(--teal))', display: 'grid', placeItems: 'center', fontSize: 22, fontWeight: 700, color: '#000', flexShrink: 0, overflow: 'hidden' }}>
+                        {client.profile?.profile_picture ? <img src={client.profile.profile_picture} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : initials(client.profile, client.email)}
                       </div>
-
-                      {client.profile?.phone && (
-                        <p style={{ color: '#666', marginBottom: '10px' }}>
-                          <strong>Phone:</strong> {client.profile.phone}
-                        </p>
-                      )}
-
-                      {client.start_date && (
-                        <p style={{ color: '#666', marginBottom: '15px' }}>
-                          <strong>Client since:</strong> {new Date(client.start_date).toLocaleDateString()}
-                        </p>
-                      )}
-
-                      <button
-                        className="btn btn-primary"
-                        style={{ width: '100%' }}
-                        onClick={() => navigate(`/clients/${client.id}`)}
-                      >
-                        View Progress
-                      </button>
+                      <div>
+                        <h3 style={{ marginBottom: 3 }}>{fullName(client.profile, client.email)}</h3>
+                        <p className="muted-text" style={{ fontSize: 12 }}>{client.email}</p>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    <div className="flex flex-wrap gap-6 mb-14">
+                      {client.profile?.phone && <span className="badge badge-muted">{client.profile.phone}</span>}
+                      {client.start_date && <span className="badge badge-green">Since {new Date(client.start_date).toLocaleDateString()}</span>}
+                    </div>
+                    <button className="btn btn-secondary btn-sm w-full" onClick={() => navigate(`/clients/${client.id}`)}>View progress →</button>
+                  </div>
+                ))}
+              </div>
+            )
           )}
 
-          {/* Pending Requests Tab */}
           {activeTab === 'requests' && (
-            <div>
-              {requests.length === 0 ? (
-                <div className="card" style={{ textAlign: 'center', padding: '50px' }}>
-                  <p style={{ color: '#666', fontSize: '18px' }}>
-                    No pending hire requests.
-                  </p>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gap: '20px' }}>
-                  {requests.map((request) => (
-                    <div key={request.id} className="card">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                        <div
-                          style={{
-                            width: '80px',
-                            height: '80px',
-                            borderRadius: '50%',
-                            backgroundColor: '#2196F3',
-                            color: 'white',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '36px',
-                            flexShrink: 0,
-                          }}
-                        >
-                          {request.client?.profile?.first_name?.[0] || request.client?.email[0].toUpperCase()}
-                        </div>
-
-                        <div style={{ flex: 1 }}>
-                          <h3 style={{ marginBottom: '5px' }}>
-                            {request.client?.profile?.first_name && request.client?.profile?.last_name
-                              ? `${request.client.profile.first_name} ${request.client.profile.last_name}`
-                              : 'Client'}
-                          </h3>
-                          <p style={{ color: '#666', marginBottom: '5px' }}>
-                            {request.client?.email}
-                          </p>
-                          <p style={{ color: '#666', fontSize: '14px' }}>
-                            Requested: {new Date(request.requested_at).toLocaleDateString()}
-                          </p>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                          <button
-                            className="btn btn-primary"
-                            onClick={() => handleRequestResponse(request.id, 'accepted')}
-                          >
-                            Accept
-                          </button>
-                          <button
-                            className="btn"
-                            style={{ backgroundColor: '#f44336', color: 'white' }}
-                            onClick={() => handleRequestResponse(request.id, 'denied')}
-                          >
-                            Decline
-                          </button>
-                        </div>
+            requests.length === 0 ? (
+              <div className="card fade-up" style={{ textAlign: 'center', padding: '60px 40px' }}>
+                <p style={{ fontSize: 40, marginBottom: 12 }}>📬</p>
+                <h3 style={{ marginBottom: 8 }}>No pending requests</h3>
+                <p className="muted-text">New hire requests from clients will appear here.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }} className="fade-up">
+                {requests.map(req => (
+                  <div key={req.id} className="card" style={{ borderRadius: 16 }}>
+                    <div className="flex items-center gap-16" style={{ flexWrap: 'wrap' }}>
+                      <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'linear-gradient(135deg, var(--blue), var(--teal))', display: 'grid', placeItems: 'center', fontSize: 20, fontWeight: 700, color: '#000', flexShrink: 0 }}>
+                        {initials(req.client?.profile, req.client?.email)}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <h3 style={{ marginBottom: 4 }}>{fullName(req.client?.profile, req.client?.email)}</h3>
+                        <p className="muted-text" style={{ fontSize: 13 }}>{req.client?.email}</p>
+                        <p className="muted-text" style={{ fontSize: 12, marginTop: 4 }}>Requested {new Date(req.requested_at).toLocaleDateString()}</p>
+                      </div>
+                      <div className="flex gap-8">
+                        <button className="btn btn-primary btn-sm" onClick={() => respond(req.id, 'accepted')}>Accept</button>
+                        <button className="btn btn-danger btn-sm" onClick={() => respond(req.id, 'denied')}>Decline</button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                  </div>
+                ))}
+              </div>
+            )
           )}
         </>
       )}
