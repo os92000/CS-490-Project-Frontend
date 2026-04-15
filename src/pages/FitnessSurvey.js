@@ -2,146 +2,83 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { surveysAPI } from '../services/api';
 
+const levels = [
+  { v: 'beginner', label: 'Beginner', desc: 'Just starting out', icon: '🌱' },
+  { v: 'intermediate', label: 'Intermediate', desc: 'Regular routine', icon: '🔥' },
+  { v: 'advanced', label: 'Advanced', desc: 'Highly experienced', icon: '⚡' },
+];
+
 const FitnessSurvey = () => {
-  const [formData, setFormData] = useState({
-    age: '',
-    weight: '',
-    fitness_level: '',
-    goals: '',
-  });
+  const [form, setForm] = useState({ age: '', weight: '', fitness_level: '', goals: '' });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
   const navigate = useNavigate();
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-    setError('');
-  };
+  const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setError(''); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    if (!form.fitness_level || !form.goals) { setError('Please fill in fitness level and goals.'); return; }
     setIsLoading(true);
-
-    // Validation
-    if (!formData.fitness_level || !formData.goals) {
-      setError('Please fill in at least the fitness level and goals');
-      setIsLoading(false);
-      return;
-    }
-
     try {
-      const response = await surveysAPI.createFitnessSurvey(formData);
-
-      if (response.data.success) {
-        // Navigate to dashboard after successful survey submission
-        navigate('/dashboard');
-      } else {
-        setError(response.data.message || 'Failed to submit survey');
-      }
-    } catch (error) {
-      setError(error.response?.data?.message || 'An error occurred');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSkip = () => {
-    navigate('/dashboard');
+      const res = await surveysAPI.createFitnessSurvey(form);
+      if (res.data.success) navigate('/dashboard');
+      else setError(res.data.message || 'Failed to submit survey');
+    } catch (err) { setError(err.response?.data?.message || 'An error occurred'); }
+    finally { setIsLoading(false); }
   };
 
   return (
-    <div className="container" style={{ maxWidth: '700px', marginTop: '50px' }}>
-      <div className="card">
-        <h1 className="text-center">Fitness Survey</h1>
-        <p className="text-center" style={{ color: '#666', marginBottom: '30px' }}>
-          Help us understand your fitness journey (optional)
-        </p>
+    <div className="auth-page" style={{ alignItems: 'flex-start', paddingTop: 60 }}>
+      <div style={{ width: '100%', maxWidth: 560 }} className="fade-up">
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <span className="auth-logo" style={{ display: 'block', marginBottom: 6 }}>FitApp</span>
+          <h1 style={{ marginBottom: 8 }}>Quick fitness survey</h1>
+          <p className="muted-text">Help us personalise your experience. Takes under a minute.</p>
+        </div>
 
-        {error && (
-          <div className="error-message">{error}</div>
-        )}
+        {error && <div className="error-message mb-16">{error}</div>}
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="age">Age</label>
-            <input
-              type="number"
-              id="age"
-              name="age"
-              value={formData.age}
-              onChange={handleChange}
-              min="0"
-            />
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div className="flex gap-12">
+            <div className="form-group w-full">
+              <label>Age</label>
+              <input type="number" value={form.age} onChange={e => set('age', e.target.value)} placeholder="e.g. 25" min="0" max="120" />
+            </div>
+            <div className="form-group w-full">
+              <label>Weight (kg)</label>
+              <input type="number" value={form.weight} onChange={e => set('weight', e.target.value)} placeholder="e.g. 72" min="0" />
+            </div>
           </div>
 
           <div className="form-group">
-            <label htmlFor="weight">Weight (kg)</label>
-            <input
-              type="number"
-              id="weight"
-              name="weight"
-              value={formData.weight}
-              onChange={handleChange}
-            />
+            <label>Fitness level *</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 4 }}>
+              {levels.map(l => (
+                <button key={l.v} type="button" onClick={() => set('fitness_level', l.v)} style={{
+                  background: form.fitness_level === l.v ? 'var(--green-dim)' : 'var(--bg-3)',
+                  border: `2px solid ${form.fitness_level === l.v ? 'var(--green)' : 'var(--border-2)'}`,
+                  borderRadius: 10, padding: '14px 10px', cursor: 'pointer', textAlign: 'center', fontFamily: 'inherit', transition: 'all 0.15s',
+                }}>
+                  <div style={{ fontSize: 22, marginBottom: 6 }}>{l.icon}</div>
+                  <strong style={{ display: 'block', fontSize: 13, color: 'var(--text)', marginBottom: 3 }}>{l.label}</strong>
+                  <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{l.desc}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="form-group">
-            <label htmlFor="fitness_level">Fitness Level *</label>
-            <select
-              id="fitness_level"
-              name="fitness_level"
-              value={formData.fitness_level}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Select fitness level</option>
-              <option value="beginner">Beginner - Just starting out</option>
-              <option value="intermediate">Intermediate - Regular exercise routine</option>
-              <option value="advanced">Advanced - Highly experienced</option>
-            </select>
+            <label>Your goals *</label>
+            <textarea value={form.goals} onChange={e => set('goals', e.target.value)} rows={3}
+              placeholder="e.g. Lose 8kg, build muscle, improve endurance, reduce stress…" />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="goals">Goals *</label>
-            <textarea
-              id="goals"
-              name="goals"
-              value={formData.goals}
-              onChange={handleChange}
-              placeholder="e.g., Lose weight, build muscle, improve endurance"
-              rows="3"
-              required
-            />
-          </div>
-
-          <div className="flex gap-10" style={{ justifyContent: 'center' }}>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={isLoading}
-              style={{ minWidth: '150px' }}
-            >
-              {isLoading ? 'Submitting...' : 'Submit Survey'}
+          <div className="flex gap-10 justify-center mt-8">
+            <button type="submit" className="btn btn-primary btn-lg" disabled={isLoading} style={{ minWidth: 160 }}>
+              {isLoading ? 'Saving…' : 'Start my journey →'}
             </button>
-
-            <button
-              type="button"
-              onClick={handleSkip}
-              className="btn"
-              style={{
-                backgroundColor: '#666',
-                color: 'white',
-                minWidth: '150px'
-              }}
-              disabled={isLoading}
-            >
-              Skip for Now
-            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => navigate('/dashboard')} disabled={isLoading}>Skip</button>
           </div>
         </form>
       </div>

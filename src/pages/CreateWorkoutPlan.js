@@ -1,490 +1,176 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { coachesAPI, workoutsAPI } from '../services/api';
 
 const CreateWorkoutPlan = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [clients, setClients] = useState([]);
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
-
+  const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
   const [planForm, setPlanForm] = useState({
-    name: '',
-    description: '',
-    client_id: '',
-    start_date: '',
-    end_date: '',
-    metadata: {
-      goal: '',
-      difficulty: '',
-      plan_type: '',
-      duration_weeks: '',
-    },
-    days: []
+    name:'', description:'', client_id:'', start_date:'', end_date:'',
+    metadata:{ goal:'', difficulty:'', plan_type:'', duration_weeks:'' },
+    days:[]
   });
 
   useEffect(() => {
-    loadData();
+    Promise.all([coachesAPI.getMyClients(), workoutsAPI.getExercises()])
+      .then(([cr, er]) => {
+        if (cr.data.success) setClients(cr.data.data.clients.filter(c=>c.status==='active'));
+        if (er.data.success) setExercises(er.data.data.exercises);
+      })
+      .catch(() => setError('Failed to load data.'))
+      .finally(() => setLoading(false));
   }, []);
 
-  const loadData = async () => {
+  const setMeta = (k,v) => setPlanForm(f=>({...f,metadata:{...f.meta,...f.metadata,[k]:v}}));
+  const addDay = () => setPlanForm(f=>({...f,days:[...f.days,{name:`Day ${f.days.length+1}`,day_number:f.days.length+1,notes:'',exercises:[]}]}));
+  const removeDay = i => setPlanForm(f=>({...f,days:f.days.filter((_,j)=>j!==i)}));
+  const updDay = (i,k,v) => { const d=[...planForm.days]; d[i]={...d[i],[k]:v}; setPlanForm(f=>({...f,days:d})); };
+  const addEx = i => { const d=[...planForm.days]; d[i].exercises.push({exercise_id:exercises[0]?.id||'',sets:3,reps:'10',weight:'bodyweight',rest_seconds:60,notes:''}); setPlanForm(f=>({...f,days:d})); };
+  const removeEx = (di,ei) => { const d=[...planForm.days]; d[di].exercises=d[di].exercises.filter((_,j)=>j!==ei); setPlanForm(f=>({...f,days:d})); };
+  const updEx = (di,ei,k,v) => { const d=[...planForm.days]; d[di].exercises[ei]={...d[di].exercises[ei],[k]:v}; setPlanForm(f=>({...f,days:d})); };
+
+  const handleSubmit = async e => {
+    e.preventDefault(); setError(''); setSuccess('');
+    if (!planForm.client_id) { setError('Please select a client.'); return; }
     try {
-      // Load coach's clients
-      const clientsRes = await coachesAPI.getMyClients();
-      if (clientsRes.data.success) {
-        const activeClients = clientsRes.data.data.clients.filter(c => c.status === 'active');
-        setClients(activeClients);
-      }
-
-      // Load exercises
-      const exercisesRes = await workoutsAPI.getExercises();
-      if (exercisesRes.data.success) {
-        setExercises(exercisesRes.data.data.exercises);
-      }
-
-      setLoading(false);
-    } catch (error) {
-      console.error('Error loading data:', error);
-      setErrorMessage('Failed to load data');
-      setLoading(false);
-    }
+      const res = await workoutsAPI.createWorkoutPlan(planForm);
+      if (res.data.success) { setSuccess('Workout plan created!'); setTimeout(() => navigate('/my-clients'), 1800); }
+    } catch(err) { setError(err.response?.data?.message || 'Failed to create plan.'); }
   };
 
-  const addDay = () => {
-    setPlanForm({
-      ...planForm,
-      days: [
-        ...planForm.days,
-        {
-          name: `Day ${planForm.days.length + 1}`,
-          day_number: planForm.days.length + 1,
-          notes: '',
-          exercises: []
-        }
-      ]
-    });
-  };
-
-  const removeDay = (dayIndex) => {
-    const newDays = planForm.days.filter((_, index) => index !== dayIndex);
-    setPlanForm({ ...planForm, days: newDays });
-  };
-
-  const updateDay = (dayIndex, field, value) => {
-    const newDays = [...planForm.days];
-    newDays[dayIndex][field] = value;
-    setPlanForm({ ...planForm, days: newDays });
-  };
-
-  const addExerciseToDay = (dayIndex) => {
-    const newDays = [...planForm.days];
-    newDays[dayIndex].exercises.push({
-      exercise_id: exercises[0]?.id || '',
-      sets: 3,
-      reps: '10',
-      weight: 'bodyweight',
-      rest_seconds: 60,
-      notes: ''
-    });
-    setPlanForm({ ...planForm, days: newDays });
-  };
-
-  const removeExerciseFromDay = (dayIndex, exerciseIndex) => {
-    const newDays = [...planForm.days];
-    newDays[dayIndex].exercises = newDays[dayIndex].exercises.filter((_, index) => index !== exerciseIndex);
-    setPlanForm({ ...planForm, days: newDays });
-  };
-
-  const updateExercise = (dayIndex, exerciseIndex, field, value) => {
-    const newDays = [...planForm.days];
-    newDays[dayIndex].exercises[exerciseIndex][field] = value;
-    setPlanForm({ ...planForm, days: newDays });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSuccessMessage('');
-    setErrorMessage('');
-
-    if (!planForm.client_id) {
-      setErrorMessage('Please select a client');
-      return;
-    }
-
+  const saveTemplate = async () => {
+    setError(''); setSuccess('');
+    if (!planForm.name || planForm.days.length === 0) { setError('Add a name and at least one day before saving a template.'); return; }
     try {
-      const response = await workoutsAPI.createWorkoutPlan(planForm);
-      if (response.data.success) {
-        setSuccessMessage('Workout plan created successfully!');
-        setTimeout(() => {
-          navigate('/my-clients');
-        }, 2000);
-      }
-    } catch (error) {
-      console.error('Error creating workout plan:', error);
-      setErrorMessage(error.response?.data?.message || 'Failed to create workout plan');
-    }
+      await workoutsAPI.createTemplate({ name:planForm.name, description:planForm.description, goal:planForm.metadata.goal, difficulty:planForm.metadata.difficulty, plan_type:planForm.metadata.plan_type, duration_weeks:planForm.metadata.duration_weeks, is_public:true, template_data:{days:planForm.days} });
+      setSuccess('Template submitted for admin approval.');
+    } catch(err) { setError(err.response?.data?.message || 'Failed to save template.'); }
   };
 
-  const handleSaveTemplate = async () => {
-    setSuccessMessage('');
-    setErrorMessage('');
-
-    if (!planForm.name || planForm.days.length === 0) {
-      setErrorMessage('Add a name and at least one workout day before saving a template');
-      return;
-    }
-
-    try {
-      const response = await workoutsAPI.createTemplate({
-        name: planForm.name,
-        description: planForm.description,
-        goal: planForm.metadata.goal,
-        difficulty: planForm.metadata.difficulty,
-        plan_type: planForm.metadata.plan_type,
-        duration_weeks: planForm.metadata.duration_weeks,
-        is_public: true,
-        template_data: {
-          days: planForm.days
-        }
-      });
-
-      if (response.data.success) {
-        setSuccessMessage('Workout template submitted for admin approval.');
-      }
-    } catch (error) {
-      console.error('Error creating template:', error);
-      setErrorMessage(error.response?.data?.message || 'Failed to save workout template');
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="container" style={{ textAlign: 'center', marginTop: '50px' }}>
-        <p>Loading...</p>
-      </div>
-    );
-  }
+  if (loading) return <div className="loading">Loading…</div>;
 
   return (
-    <div className="container" style={{ maxWidth: '1000px', marginTop: '30px' }}>
-      <h1>Create Workout Plan</h1>
-
-      {successMessage && (
-        <div className="card" style={{ backgroundColor: '#d4edda', borderColor: '#c3e6cb', marginBottom: '20px' }}>
-          <p style={{ color: '#155724', margin: 0 }}>{successMessage}</p>
-        </div>
-      )}
-
-      {errorMessage && (
-        <div className="card" style={{ backgroundColor: '#f8d7da', borderColor: '#f5c6cb', marginBottom: '20px' }}>
-          <p style={{ color: '#721c24', margin: 0 }}>{errorMessage}</p>
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit}>
-        {/* Basic Info */}
-        <div className="card">
-          <h3>Plan Details</h3>
-
-          <div className="form-group">
-            <label>Client *</label>
-            <select
-              className="input"
-              value={planForm.client_id}
-              onChange={(e) => setPlanForm({ ...planForm, client_id: e.target.value })}
-              required
-            >
-              <option value="">Select a client</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.profile?.first_name || client.email}
-                </option>
-              ))}
-            </select>
+    <div className="container page-shell">
+      <div className="page-hero fade-up">
+        <div className="flex justify-between items-center flex-wrap gap-16">
+          <div className="hero-copy">
+            <p className="eyebrow">Coach workspace</p>
+            <h1>Create workout plan</h1>
+            <p className="page-copy">Build a custom workout plan for one of your clients, day by day.</p>
           </div>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/my-clients')}>← Back to clients</button>
+        </div>
+      </div>
 
-          <div className="form-group">
-            <label>Plan Name *</label>
-            <input
-              type="text"
-              className="input"
-              value={planForm.name}
-              onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })}
-              placeholder="e.g., 4-Week Strength Building"
-              required
-            />
+      {error && <div className="error-message">{error}</div>}
+      {success && <div className="success-message">{success}</div>}
+
+      <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:18 }}>
+
+        {/* PLAN DETAILS */}
+        <div className="card fade-up fade-up-1">
+          <h2 style={{ marginBottom:18 }}>Plan details</h2>
+          <div className="flex gap-12" style={{ flexWrap:'wrap' }}>
+            <div className="form-group w-full">
+              <label>Client *</label>
+              <select value={planForm.client_id} onChange={e=>setPlanForm(f=>({...f,client_id:e.target.value}))} required>
+                <option value="">Select a client</option>
+                {clients.map(c=><option key={c.id} value={c.id}>{c.profile?.first_name||c.email}</option>)}
+              </select>
+            </div>
           </div>
-
-          <div className="form-group">
+          <div className="form-group mt-12">
+            <label>Plan name *</label>
+            <input value={planForm.name} onChange={e=>setPlanForm(f=>({...f,name:e.target.value}))} placeholder="e.g. 4-Week Strength Builder" required/>
+          </div>
+          <div className="form-group mt-12">
             <label>Description</label>
-            <textarea
-              className="input"
-              value={planForm.description}
-              onChange={(e) => setPlanForm({ ...planForm, description: e.target.value })}
-              rows="3"
-              placeholder="Describe the goals and approach of this plan"
-            />
+            <textarea rows={2} value={planForm.description} onChange={e=>setPlanForm(f=>({...f,description:e.target.value}))} placeholder="Describe the goals and approach…"/>
           </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-            <div className="form-group">
-              <label>Start Date</label>
-              <input
-                type="date"
-                className="input"
-                value={planForm.start_date}
-                onChange={(e) => setPlanForm({ ...planForm, start_date: e.target.value })}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>End Date</label>
-              <input
-                type="date"
-                className="input"
-                value={planForm.end_date}
-                onChange={(e) => setPlanForm({ ...planForm, end_date: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px' }}>
-            <div className="form-group">
-              <label>Goal</label>
-              <input
-                type="text"
-                className="input"
-                value={planForm.metadata.goal}
-                onChange={(e) => setPlanForm({ ...planForm, metadata: { ...planForm.metadata, goal: e.target.value } })}
-                placeholder="Fat loss, strength, endurance..."
-              />
-            </div>
-            <div className="form-group">
-              <label>Difficulty</label>
-              <select
-                className="input"
-                value={planForm.metadata.difficulty}
-                onChange={(e) => setPlanForm({ ...planForm, metadata: { ...planForm.metadata, difficulty: e.target.value } })}
-              >
-                <option value="">Select difficulty</option>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:12, marginTop:14 }}>
+            <div className="form-group"><label>Start date</label><input type="date" value={planForm.start_date} onChange={e=>setPlanForm(f=>({...f,start_date:e.target.value}))}/></div>
+            <div className="form-group"><label>End date</label><input type="date" value={planForm.end_date} onChange={e=>setPlanForm(f=>({...f,end_date:e.target.value}))}/></div>
+            <div className="form-group"><label>Goal</label><input value={planForm.metadata.goal} onChange={e=>setMeta('goal',e.target.value)} placeholder="Fat loss, strength…"/></div>
+            <div className="form-group"><label>Difficulty</label>
+              <select value={planForm.metadata.difficulty} onChange={e=>setMeta('difficulty',e.target.value)}>
+                <option value="">Select</option>
                 <option value="beginner">Beginner</option>
                 <option value="intermediate">Intermediate</option>
                 <option value="advanced">Advanced</option>
               </select>
             </div>
-            <div className="form-group">
-              <label>Plan Type</label>
-              <input
-                type="text"
-                className="input"
-                value={planForm.metadata.plan_type}
-                onChange={(e) => setPlanForm({ ...planForm, metadata: { ...planForm.metadata, plan_type: e.target.value } })}
-                placeholder="Strength split, full body..."
-              />
-            </div>
-            <div className="form-group">
-              <label>Duration (weeks)</label>
-              <input
-                type="number"
-                className="input"
-                value={planForm.metadata.duration_weeks}
-                onChange={(e) => setPlanForm({ ...planForm, metadata: { ...planForm.metadata, duration_weeks: e.target.value } })}
-              />
-            </div>
+            <div className="form-group"><label>Plan type</label><input value={planForm.metadata.plan_type} onChange={e=>setMeta('plan_type',e.target.value)} placeholder="Full body, split…"/></div>
+            <div className="form-group"><label>Duration (weeks)</label><input type="number" value={planForm.metadata.duration_weeks} onChange={e=>setMeta('duration_weeks',e.target.value)}/></div>
           </div>
         </div>
 
-        {/* Workout Days */}
-        <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h3>Workout Days</h3>
-            <button type="button" className="btn btn-primary" onClick={addDay}>
-              + Add Day
-            </button>
+        {/* WORKOUT DAYS */}
+        <div className="card fade-up fade-up-2">
+          <div className="section-header">
+            <div><h2>Workout days</h2><p className="muted-text">{planForm.days.length} day{planForm.days.length!==1?'s':''} added</p></div>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={addDay}>+ Add day</button>
           </div>
 
           {planForm.days.length === 0 ? (
-            <p style={{ color: '#666', textAlign: 'center', padding: '20px' }}>
-              No workout days yet. Click "Add Day" to create your first workout day.
-            </p>
-          ) : (
-            planForm.days.map((day, dayIndex) => (
-              <div key={dayIndex} style={{ marginBottom: '25px', padding: '20px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                  <h4 style={{ margin: 0 }}>Day {dayIndex + 1}</h4>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => removeDay(dayIndex)}
-                    style={{ padding: '5px 15px' }}
-                  >
-                    Remove Day
-                  </button>
-                </div>
-
-                <div className="form-group">
-                  <label>Day Name</label>
-                  <input
-                    type="text"
-                    className="input"
-                    value={day.name}
-                    onChange={(e) => updateDay(dayIndex, 'name', e.target.value)}
-                    placeholder="e.g., Upper Body, Leg Day"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Notes</label>
-                  <textarea
-                    className="input"
-                    value={day.notes}
-                    onChange={(e) => updateDay(dayIndex, 'notes', e.target.value)}
-                    rows="2"
-                    placeholder="Instructions or notes for this day"
-                  />
-                </div>
-
-                {/* Exercises */}
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px', marginBottom: '10px' }}>
-                    <strong>Exercises</strong>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() => addExerciseToDay(dayIndex)}
-                      style={{ padding: '5px 15px', fontSize: '14px' }}
-                    >
-                      + Add Exercise
-                    </button>
-                  </div>
-
-                  {day.exercises.length === 0 ? (
-                    <p style={{ color: '#888', fontSize: '14px', fontStyle: 'italic' }}>No exercises added yet</p>
-                  ) : (
-                    day.exercises.map((exercise, exIndex) => (
-                      <div key={exIndex} style={{ padding: '15px', backgroundColor: 'white', borderRadius: '5px', marginBottom: '10px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '10px' }}>
-                          <div style={{ flex: 1 }}>
-                            <label style={{ fontSize: '12px', color: '#888' }}>Exercise</label>
-                            <select
-                              className="input"
-                              value={exercise.exercise_id}
-                              onChange={(e) => updateExercise(dayIndex, exIndex, 'exercise_id', e.target.value)}
-                              style={{ marginTop: '5px' }}
-                            >
-                              {exercises.map((ex) => (
-                                <option key={ex.id} value={ex.id}>{ex.name}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeExerciseFromDay(dayIndex, exIndex)}
-                            style={{
-                              marginLeft: '10px',
-                              padding: '5px 10px',
-                              backgroundColor: '#f44336',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '5px',
-                              cursor: 'pointer',
-                              fontSize: '12px'
-                            }}
-                          >
-                            Remove
-                          </button>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
-                          <div>
-                            <label style={{ fontSize: '12px', color: '#888' }}>Sets</label>
-                            <input
-                              type="number"
-                              className="input"
-                              value={exercise.sets}
-                              onChange={(e) => updateExercise(dayIndex, exIndex, 'sets', e.target.value)}
-                              style={{ marginTop: '5px' }}
-                            />
-                          </div>
-                          <div>
-                            <label style={{ fontSize: '12px', color: '#888' }}>Reps</label>
-                            <input
-                              type="text"
-                              className="input"
-                              value={exercise.reps}
-                              onChange={(e) => updateExercise(dayIndex, exIndex, 'reps', e.target.value)}
-                              placeholder="e.g., 10-12"
-                              style={{ marginTop: '5px' }}
-                            />
-                          </div>
-                          <div>
-                            <label style={{ fontSize: '12px', color: '#888' }}>Weight</label>
-                            <input
-                              type="text"
-                              className="input"
-                              value={exercise.weight}
-                              onChange={(e) => updateExercise(dayIndex, exIndex, 'weight', e.target.value)}
-                              placeholder="e.g., 20kg"
-                              style={{ marginTop: '5px' }}
-                            />
-                          </div>
-                          <div>
-                            <label style={{ fontSize: '12px', color: '#888' }}>Rest (sec)</label>
-                            <input
-                              type="number"
-                              className="input"
-                              value={exercise.rest_seconds}
-                              onChange={(e) => updateExercise(dayIndex, exIndex, 'rest_seconds', e.target.value)}
-                              style={{ marginTop: '5px' }}
-                            />
-                          </div>
-                        </div>
-
-                        <div style={{ marginTop: '10px' }}>
-                          <label style={{ fontSize: '12px', color: '#888' }}>Notes</label>
-                          <input
-                            type="text"
-                            className="input"
-                            value={exercise.notes}
-                            onChange={(e) => updateExercise(dayIndex, exIndex, 'notes', e.target.value)}
-                            placeholder="Exercise-specific instructions"
-                            style={{ marginTop: '5px' }}
-                          />
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+            <div style={{ textAlign:'center', padding:'40px 0' }}>
+              <p style={{fontSize:32,marginBottom:8}}>💪</p>
+              <p className="muted-text">No workout days yet. Click "+ Add day" to build your plan.</p>
+            </div>
+          ) : planForm.days.map((day, di) => (
+            <div key={di} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:18, marginBottom:14 }}>
+              <div className="flex justify-between items-center mb-12">
+                <h3 style={{ color:'var(--green)' }}>Day {di+1}</h3>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => removeDay(di)}>Remove day</button>
               </div>
-            ))
-          )}
+              <div className="flex gap-12 mb-12" style={{ flexWrap:'wrap' }}>
+                <div className="form-group w-full"><label>Day name</label><input value={day.name} onChange={e=>updDay(di,'name',e.target.value)} placeholder="e.g. Upper Body, Leg Day"/></div>
+                <div className="form-group w-full"><label>Notes</label><textarea rows={2} value={day.notes} onChange={e=>updDay(di,'notes',e.target.value)} placeholder="Instructions for this day…"/></div>
+              </div>
+
+              <div className="flex justify-between items-center mb-10">
+                <strong style={{ fontSize:13, color:'var(--text-2)' }}>Exercises ({day.exercises.length})</strong>
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => addEx(di)}>+ Add exercise</button>
+              </div>
+
+              {day.exercises.length === 0 ? (
+                <p className="muted-text" style={{ fontSize:13, fontStyle:'italic' }}>No exercises yet.</p>
+              ) : day.exercises.map((ex, ei) => (
+                <div key={ei} style={{ background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, padding:14, marginBottom:10 }}>
+                  <div className="flex justify-between items-center mb-10">
+                    <div className="form-group w-full" style={{ marginBottom:0 }}>
+                      <label>Exercise</label>
+                      <select value={ex.exercise_id} onChange={e=>updEx(di,ei,'exercise_id',e.target.value)}>
+                        {exercises.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}
+                      </select>
+                    </div>
+                    <button type="button" className="btn btn-danger btn-sm" style={{ marginLeft:10, alignSelf:'flex-end' }} onClick={() => removeEx(di,ei)}>✕</button>
+                  </div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10 }}>
+                    <div className="form-group"><label>Sets</label><input type="number" value={ex.sets} onChange={e=>updEx(di,ei,'sets',e.target.value)}/></div>
+                    <div className="form-group"><label>Reps</label><input value={ex.reps} onChange={e=>updEx(di,ei,'reps',e.target.value)} placeholder="10-12"/></div>
+                    <div className="form-group"><label>Weight</label><input value={ex.weight} onChange={e=>updEx(di,ei,'weight',e.target.value)} placeholder="20kg"/></div>
+                    <div className="form-group"><label>Rest (sec)</label><input type="number" value={ex.rest_seconds} onChange={e=>updEx(di,ei,'rest_seconds',e.target.value)}/></div>
+                  </div>
+                  <div className="form-group mt-8"><label>Notes</label><input value={ex.notes} onChange={e=>updEx(di,ei,'notes',e.target.value)} placeholder="Exercise instructions…"/></div>
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
 
-        {/* Submit */}
-        <div style={{ textAlign: 'right' }}>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={handleSaveTemplate}
-            style={{ marginRight: '10px' }}
-          >
-            Save as Template
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => navigate('/my-clients')}
-            style={{ marginRight: '10px' }}
-          >
-            Cancel
-          </button>
-          <button type="submit" className="btn btn-primary">
-            Create Workout Plan
-          </button>
+        {/* ACTIONS */}
+        <div className="flex justify-between items-center flex-wrap gap-10 fade-up">
+          <div className="flex gap-10">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate('/my-clients')}>Cancel</button>
+          </div>
+          <div className="flex gap-10">
+            <button type="button" className="btn btn-secondary" onClick={saveTemplate}>Save as template</button>
+            <button type="submit" className="btn btn-primary">Create workout plan</button>
+          </div>
         </div>
       </form>
     </div>
