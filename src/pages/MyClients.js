@@ -69,15 +69,15 @@ const MyClients = () => {
             ) : (
               <div className="coach-grid fade-up">
                 {clients.map(client => (
-                  <div key={client.id} className="card card-hover" style={{ borderRadius: 16 }}>
-                    <div className="flex items-center gap-14 mb-14">
+                  <div key={client.id} className="card card-hover" style={{ borderRadius: 16, padding: 24 }}>
+                    <div className="flex items-center gap-20 mb-16">
                       <Avatar src={client.profile?.profile_picture} name={fullName(client.profile, client.email)} size={56} />
                       <div>
                         <h3 style={{ marginBottom: 3 }}>{fullName(client.profile, client.email)}</h3>
                         <p className="muted-text" style={{ fontSize: 12 }}>{client.email}</p>
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-6 mb-14">
+                    <div className="flex flex-wrap gap-6 mb-16">
                       {client.profile?.phone && <span className="badge badge-muted">{client.profile.phone}</span>}
                       {client.start_date && <span className="badge badge-green">Since {new Date(client.start_date).toLocaleDateString()}</span>}
                     </div>
