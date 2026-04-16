@@ -13,6 +13,17 @@ const Chat = () => {
   const [socket, setSocket] = useState(null);
   const [reportReason, setReportReason] = useState('');
   const messagesEndRef = useRef(null);
+  const messagesListRef = useRef(null);
+  const shouldAutoScrollRef = useRef(true);
+
+  const isNearBottom = (el, threshold = 80) => (
+    el.scrollHeight - el.scrollTop - el.clientHeight <= threshold
+  );
+
+  const scrollToBottom = (behavior = 'auto') => {
+    if (!messagesEndRef.current) return;
+    messagesEndRef.current.scrollIntoView({ behavior, block: 'end' });
+  };
 
   useEffect(() => {
     loadConversations();
@@ -22,7 +33,21 @@ const Chat = () => {
     return () => sock.close();
   }, []);
 
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  useEffect(() => {
+    const el = messagesListRef.current;
+    if (!el) return;
+
+    // Keep new messages pinned to bottom only when the user is already near bottom.
+    if (shouldAutoScrollRef.current || isNearBottom(el)) {
+      scrollToBottom('auto');
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    // Always jump to bottom when switching conversations.
+    shouldAutoScrollRef.current = true;
+    scrollToBottom('auto');
+  }, [selectedConversation?.relationship_id]);
 
   const loadConversations = async () => {
     try {
@@ -61,6 +86,11 @@ const Chat = () => {
 
   const otherName = (conv) => conv.other_user?.profile?.first_name || conv.other_user?.email || 'User';
   const otherInitial = (conv) => (otherName(conv)[0] || '?').toUpperCase();
+  const handleMessagesScroll = () => {
+    const el = messagesListRef.current;
+    if (!el) return;
+    shouldAutoScrollRef.current = isNearBottom(el);
+  };
 
   return (
     <div className="container page-shell">
@@ -120,7 +150,7 @@ const Chat = () => {
             </div>
 
             {/* Messages */}
-            <div className="chat-messages">
+            <div className="chat-messages" ref={messagesListRef} onScroll={handleMessagesScroll}>
               {messages.length === 0 && <p className="muted-text text-center" style={{ margin: 'auto' }}>No messages yet. Say hello!</p>}
               {messages.map(msg => (
                 <div key={msg.id} className={`msg-bubble ${msg.sender_id === user.id ? 'msg-mine' : 'msg-theirs'}`}>
