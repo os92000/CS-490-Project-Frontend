@@ -59,13 +59,10 @@ const LandingPage = () => {
     <div className="landing-page">
       <header className="landing-header">
         <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 16, paddingBottom: 16 }}>
-          <Link to="/" style={{ fontWeight: 700, fontSize: '1.25rem', color: '#2e7d32', textDecoration: 'none' }}>
-            Fitness App
+          <Link to="/" className="auth-logo" style={{ display: 'inline-block', marginBottom: 0, textDecoration: 'none' }}>
+            FitApp
           </Link>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-            <Link to="/top-coaches" style={{ color: '#2e7d32', fontWeight: 600, textDecoration: 'none', marginRight: 8 }}>
-              Top coaches
-            </Link>
             <Link to="/login" className="btn btn-secondary" style={{ textDecoration: 'none', display: 'inline-block' }}>
               Log in
             </Link>
@@ -83,13 +80,13 @@ const LandingPage = () => {
           </h1>
           <p style={{ color: '#555', fontSize: '1.1rem', lineHeight: 1.6, marginBottom: 28 }}>
             Connect with certified coaches, book sessions around your schedule, and track workouts and progress in one
-            place — whether you&apos;re just starting out or leveling up.
+            place - whether you&apos;re just starting out or leveling up.
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
             <Link to="/signup" className="btn btn-primary" style={{ textDecoration: 'none', display: 'inline-block', padding: '12px 24px' }}>
               Create an account
             </Link>
-            <Link to="/login" className="btn" style={{ textDecoration: 'none', display: 'inline-block', padding: '12px 24px', background: '#fff', border: '1px solid #ccc' }}>
+            <Link to="/login" className="btn" style={{ textDecoration: 'none', display: 'inline-block', padding: '12px 24px', background: '#fff', border: '1px solid #ccc', color: '#000' }}>
               I already have an account
             </Link>
           </div>
@@ -210,7 +207,7 @@ const LandingPage = () => {
           <ul style={{ color: '#555', lineHeight: 1.8, paddingLeft: 20 }}>
             <li>Browse coaches, compare experience and pricing, and request to work with someone who matches your goals.</li>
             <li>Log workouts, meals, and wellness check-ins so you and your coach stay aligned.</li>
-            <li>Message your coach in-app once you&apos;re connected — no scattered texts or emails.</li>
+            <li>Message your coach in-app once you&apos;re connected - no scattered texts or emails.</li>
           </ul>
         </section>
 

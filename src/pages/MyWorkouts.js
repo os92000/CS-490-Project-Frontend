@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { workoutsAPI } from '../services/api';
 import FitChart, { barDataset, lineDataset } from '../components/FitChart';
+import { buildBucketSeries } from '../utils/chartSeries';
 
 const PAGE_SIZE = 10;
 
@@ -80,6 +81,24 @@ const MyWorkouts = () => {
 
   const logsTotalPages = Math.max(1, Math.ceil(logs.length / PAGE_SIZE));
   const pagedLogs = logs.slice((logsPage - 1) * PAGE_SIZE, logsPage * PAGE_SIZE);
+
+  const sessionsSeries = useMemo(() => buildBucketSeries(logs, {
+    periods: 4,
+    daysPerPeriod: 7,
+    dateAccessor: (log) => log.date,
+    valueAccessor: (log) => (log.completed === false ? 0 : 1),
+    aggregate: 'sum',
+    labelFormatter: (date) => date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+  }), [logs]);
+
+  const ratingSeries = useMemo(() => buildBucketSeries(logs, {
+    periods: 8,
+    daysPerPeriod: 7,
+    dateAccessor: (log) => log.date,
+    valueAccessor: (log) => Number(log.rating),
+    aggregate: 'average',
+    labelFormatter: (date) => date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+  }), [logs]);
 
   useEffect(() => {
     if (activeTab === 'plans' && selectedPlan && selectedPlanRef.current) {
@@ -179,24 +198,26 @@ const MyWorkouts = () => {
             <div className="section-header"><div><h2>Sessions this month</h2><p className="muted-text">Week by week</p></div></div>
             <FitChart
               type="bar"
-              labels={['Wk1', 'Wk2', 'Wk3', 'Wk4']}
-              datasets={[barDataset('Sessions', [
-                Math.round((stats.workout_frequency_per_week || 0) * 0.7),
-                stats.workout_frequency_per_week || 0,
-                Math.round((stats.workout_frequency_per_week || 0) * 1.2),
-                stats.workout_frequency_per_week || 0,
-              ], '#3fb950')]}
+              labels={sessionsSeries.labels}
+              datasets={[barDataset('Sessions', sessionsSeries.values, '#3fb950')]}
               height={160}
             />
           </div>
           <div className="card">
             <div className="section-header"><div><h2>Avg session rating</h2><p className="muted-text">Trend over 8 weeks</p></div></div>
-            <FitChart
-              type="line"
-              labels={['Wk1', 'Wk2', 'Wk3', 'Wk4', 'Wk5', 'Wk6', 'Wk7', 'Wk8']}
-              datasets={[lineDataset('Rating', [3, 3.5, 4, 3.8, 4.2, 4, 4.5, stats.average_rating || 4], '#e3b341', true)]}
-              height={160}
-            />
+            {ratingSeries.values.some(v => v != null) ? (
+              <FitChart
+                type="line"
+                labels={ratingSeries.labels}
+                datasets={[lineDataset('Rating', ratingSeries.values, '#e3b341', true)]}
+                height={160}
+              />
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                <p style={{ fontSize: 32, marginBottom: 8 }}>📈</p>
+                <p className="muted-text">Log workout ratings to see this trend.</p>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { analyticsAPI, coachesAPI, nutritionAPI, surveysAPI } from '../services/api';
+import { analyticsAPI, coachesAPI, nutritionAPI, surveysAPI, workoutsAPI } from '../services/api';
 import Avatar from '../components/Avatar';
 import FitChart, { barDataset, lineDataset } from '../components/FitChart';
+import { buildBucketSeries } from '../utils/chartSeries';
 
 const Dashboard = () => {
   const { user, hasRole } = useAuth();
@@ -11,6 +12,7 @@ const Dashboard = () => {
   const [workoutSummary, setWorkoutSummary] = useState(null);
   const [nutritionSummary, setNutritionSummary] = useState(null);
   const [dailyCaloriesSeries, setDailyCaloriesSeries] = useState({ labels: [], values: [] });
+  const [workoutFrequencySeries, setWorkoutFrequencySeries] = useState({ labels: [], values: [] });
   const [coachData, setCoachData] = useState(null);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,11 +29,12 @@ const Dashboard = () => {
         startDate.setDate(endDate.getDate() - 6);
         const formatDate = (d) => d.toISOString().split('T')[0];
 
-        const [sv, wk, nu, me, co, cl] = await Promise.all([
+        const [sv, wk, nu, me, wl, co, cl] = await Promise.all([
           surveysAPI.getMyFitnessSurvey().catch(() => null),
           analyticsAPI.getWorkoutSummary({ days: 30 }).catch(() => null),
           analyticsAPI.getNutritionSummary({ days: 7 }).catch(() => null),
           nutritionAPI.getMeals({ start_date: formatDate(startDate), end_date: formatDate(endDate) }).catch(() => null),
+          workoutsAPI.getWorkoutLogs({ start_date: formatDate(new Date(Date.now() - (55 * 24 * 60 * 60 * 1000))), end_date: formatDate(endDate) }).catch(() => null),
           isClient ? coachesAPI.getMyCoach().catch(() => null) : Promise.resolve(null),
           isCoach  ? coachesAPI.getMyClients().catch(() => null) : Promise.resolve(null),
         ]);
@@ -61,6 +64,17 @@ const Dashboard = () => {
           }),
           values: Array.from(dayMap.values()),
         });
+
+        const workoutLogs = wl?.data?.success ? (wl.data.data.logs || []) : [];
+        const workoutSeries = buildBucketSeries(workoutLogs, {
+          periods: 8,
+          daysPerPeriod: 7,
+          dateAccessor: (log) => log.date,
+          valueAccessor: (log) => (log.completed === false ? 0 : 1),
+          aggregate: 'sum',
+          labelFormatter: (date) => date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        });
+        setWorkoutFrequencySeries(workoutSeries);
       } catch {} finally { setLoading(false); }
     })();
   }, [user, navigate]);
@@ -96,12 +110,6 @@ const Dashboard = () => {
   if (user.role === 'admin') quickActions.push(
     { label: 'Admin Panel',    helper: 'Platform controls', to: '/admin'        },
   );
-
-  // Workout frequency chart — illustrative based on summary
-  const weekLabels = ['Wk1','Wk2','Wk3','Wk4','Wk5','Wk6','Wk7','Wk8'];
-  // Use actual frequency to seed the chart data pattern
-  const seedFreq = Math.max(wkFreq, 1);
-  const wkChartData = weekLabels.map((_, i) => Math.max(0, Math.round(seedFreq + (Math.sin(i) * 1.5))));
 
   return (
     <div className="container page-shell">
@@ -187,8 +195,8 @@ const Dashboard = () => {
           </div>
           <FitChart
             type="bar"
-            labels={weekLabels}
-            datasets={[barDataset('Sessions', wkChartData, '#3fb950')]}
+            labels={workoutFrequencySeries.labels}
+            datasets={[barDataset('Sessions', workoutFrequencySeries.values, '#3fb950')]}
             height={180}
           />
         </div>

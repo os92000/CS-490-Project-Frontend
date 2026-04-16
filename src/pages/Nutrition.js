@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { nutritionAPI } from '../services/api';
 import FitChart, { lineDataset } from '../components/FitChart';
+import { buildBucketSeries } from '../utils/chartSeries';
 
 const today = new Date().toISOString().split('T')[0];
 const moodEmoji = { excellent:'😄', good:'😊', okay:'😐', poor:'😔', terrible:'😞' };
@@ -41,24 +42,44 @@ const Nutrition = () => {
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
-    try {
-      setLoading(true);
-      const [mr, mpr, dr, br, wr] = await Promise.all([
-        nutritionAPI.getMeals(), nutritionAPI.getMealPlans(), nutritionAPI.getDailyMetrics(),
-        nutritionAPI.getMetrics(), nutritionAPI.getWellness(),
-      ]);
-      if (mr.data.success) setMeals(mr.data.data.meals);
-      if (mpr.data.success) setMealPlans(mpr.data.data.meal_plans);
-      if (dr.data.success) setDailyMetrics(dr.data.data.daily_metrics);
-      if (br.data.success) setBodyMetrics(br.data.data.metrics);
-      if (wr.data.success) setWellnessLogs(wr.data.data.wellness);
-    } catch { setError('Failed to load nutrition data.'); }
-    finally { setLoading(false); }
+    setLoading(true);
+    setError('');
+
+    const results = await Promise.allSettled([
+      nutritionAPI.getMeals(),
+      nutritionAPI.getMealPlans(),
+      nutritionAPI.getDailyMetrics(),
+      nutritionAPI.getMetrics(),
+      nutritionAPI.getWellness(),
+    ]);
+
+    const [mr, mpr, dr, br, wr] = results;
+
+    if (mr.status === 'fulfilled' && mr.value.data.success) setMeals(mr.value.data.data.meals || []);
+    if (mpr.status === 'fulfilled' && mpr.value.data.success) setMealPlans(mpr.value.data.data.meal_plans || []);
+    if (dr.status === 'fulfilled' && dr.value.data.success) setDailyMetrics(dr.value.data.data.daily_metrics || []);
+    if (br.status === 'fulfilled' && br.value.data.success) setBodyMetrics(br.value.data.data.metrics || []);
+    if (wr.status === 'fulfilled' && wr.value.data.success) setWellnessLogs(wr.value.data.data.wellness || []);
+
+    const failures = results.filter((result) => result.status === 'rejected');
+    if (failures.length === results.length) {
+      setError('Failed to load nutrition data.');
+    }
+
+    setLoading(false);
   };
 
   const todayMeals = useMemo(() => meals.filter(m => m.date === today), [meals]);
   const caloriesToday = todayMeals.reduce((t, m) => t + (m.calories || 0), 0);
   const recentMeals = useMemo(() => meals.slice(0, 7), [meals]);
+  const calorieTrendSeries = useMemo(() => buildBucketSeries(meals, {
+    periods: 7,
+    daysPerPeriod: 1,
+    dateAccessor: (meal) => meal.date,
+    valueAccessor: (meal) => Number(meal.calories) || 0,
+    aggregate: 'sum',
+    labelFormatter: (date) => date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
+  }), [meals]);
   const nutritionSummary = useMemo(() => {
     if (recentMeals.length === 0) {
       return { average_daily_calories: 2100 };
@@ -225,20 +246,12 @@ const Nutrition = () => {
       {activeTab === 'overview' && (
         <div className="card fade-up">
           <div className="section-header">
-            <div><h2>Calorie trend</h2><p className="muted-text">7-day average</p></div>
+            <div><h2>Calorie trend</h2><p className="muted-text">Last 7 days</p></div>
           </div>
           <FitChart
             type="line"
-            labels={['Mon','Tue','Wed','Thu','Fri','Sat','Sun']}
-            datasets={[lineDataset('Calories', [
-              Math.round((nutritionSummary?.average_daily_calories||2100)*0.9),
-              Math.round((nutritionSummary?.average_daily_calories||2100)*1.1),
-              Math.round((nutritionSummary?.average_daily_calories||2100)*0.85),
-              nutritionSummary?.average_daily_calories||2100,
-              Math.round((nutritionSummary?.average_daily_calories||2100)*1.15),
-              Math.round((nutritionSummary?.average_daily_calories||2100)*0.8),
-              caloriesToday || nutritionSummary?.average_daily_calories || 2100,
-            ], '#e3b341', true)]}
+            labels={calorieTrendSeries.labels}
+            datasets={[lineDataset('Calories', calorieTrendSeries.values, '#e3b341', true)]}
             height={200}
           />
         </div>
