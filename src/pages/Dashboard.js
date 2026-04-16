@@ -94,23 +94,6 @@ const Dashboard = () => {
   const wkTotal   = workoutSummary?.total_workouts || 0;
   const wkMin     = workoutSummary?.total_duration_minutes || 0;
 
-  const quickActions = [];
-  if (hasRole(['client','both'])) quickActions.push(
-    { label: 'Browse Coaches', helper: 'Find support',      to: '/coaches'      },
-    { label: 'My Workouts',    helper: 'Track training',    to: '/my-workouts'  },
-    { label: 'Nutrition',      helper: 'Log meals',         to: '/nutrition'    },
-    { label: 'Analytics',      helper: 'View trends',       to: '/analytics'    },
-    { label: 'Chat',           helper: 'Message coach',     to: '/chat'         },
-    { label: 'My Coach',       helper: 'Your relationship', to: '/my-coach'     },
-  );
-  if (hasRole(['coach','both'])) quickActions.push(
-    { label: 'My Clients',     helper: 'Coach roster',      to: '/my-clients'   },
-    { label: 'Coach Settings', helper: 'Rates & profile',   to: '/coach-settings'},
-  );
-  if (user.role === 'admin') quickActions.push(
-    { label: 'Admin Panel',    helper: 'Platform controls', to: '/admin'        },
-  );
-
   return (
     <div className="container page-shell">
 
@@ -130,13 +113,6 @@ const Dashboard = () => {
               Logged in as <strong style={{ color: 'var(--green)' }}>{roleDisplay}</strong>.
               Here's your snapshot for the last 30 days.
             </p>
-            <div className="hero-actions">
-              {quickActions.slice(0, 4).map(a => (
-                <button key={a.label} className="btn btn-primary" onClick={() => navigate(a.to)}>
-                  {a.label}
-                </button>
-              ))}
-            </div>
           </div>
         </div>
       </div>
@@ -217,21 +193,6 @@ const Dashboard = () => {
               <p className="muted-text">Log meals to see your daily calorie trend here.</p>
             </div>
           )}
-        </div>
-      </div>
-
-      {/* QUICK ACTIONS */}
-      <div className="card fade-up fade-up-2">
-        <div className="section-header">
-          <div><h2>Quick actions</h2><p className="muted-text">Jump into the most-used areas.</p></div>
-        </div>
-        <div className="action-grid">
-          {quickActions.map(a => (
-            <button key={a.label} className="action-card" onClick={() => navigate(a.to)}>
-              <span>{a.helper}</span>
-              <strong>{a.label}</strong>
-            </button>
-          ))}
         </div>
       </div>
 
