@@ -38,7 +38,7 @@ const CreateWorkoutPlan = () => {
     if (!planForm.client_id) { setError('Please select a client.'); return; }
     try {
       const res = await workoutsAPI.createWorkoutPlan(planForm);
-      if (res.data.success) { setSuccess('Workout plan created!'); setTimeout(() => navigate('/my-clients'), 1800); }
+      if (res.data.success) { setSuccess('Workout plan created!'); setTimeout(() => navigate('/my-workouts'), 1800); }
     } catch(err) { setError(err.response?.data?.message || 'Failed to create plan.'); }
   };
 
@@ -62,7 +62,7 @@ const CreateWorkoutPlan = () => {
             <h1>Create workout plan</h1>
             <p className="page-copy">Build a custom workout plan for one of your clients, day by day.</p>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/my-clients')}>← Back to clients</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/my-workouts')}>← Back to plans</button>
         </div>
       </div>
 
