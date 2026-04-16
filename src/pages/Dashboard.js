@@ -32,7 +32,7 @@ const Dashboard = () => {
         const [sv, wk, nu, me, wl, co, cl] = await Promise.all([
           surveysAPI.getMyFitnessSurvey().catch(() => null),
           analyticsAPI.getWorkoutSummary({ days: 30 }).catch(() => null),
-          analyticsAPI.getNutritionSummary({ days: 7 }).catch(() => null),
+          analyticsAPI.getNutritionSummary({ days: 30 }).catch(() => null),
           nutritionAPI.getMeals({ start_date: formatDate(startDate), end_date: formatDate(endDate) }).catch(() => null),
           workoutsAPI.getWorkoutLogs({ start_date: formatDate(new Date(Date.now() - (55 * 24 * 60 * 60 * 1000))), end_date: formatDate(endDate) }).catch(() => null),
           isClient ? coachesAPI.getMyCoach().catch(() => null) : Promise.resolve(null),
