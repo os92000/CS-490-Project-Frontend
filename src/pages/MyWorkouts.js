@@ -18,7 +18,7 @@ const MyWorkouts = () => {
     try {
       setLoading(true);
       const [pr, lr, sr] = await Promise.all([
-        workoutsAPI.getMyPlans().catch(()=>null),
+        workoutsAPI.getWorkoutPlans().catch(()=>null),
         workoutsAPI.getWorkoutLogs().catch(()=>null),
         workoutsAPI.getWorkoutStats().catch(()=>null),
       ]);

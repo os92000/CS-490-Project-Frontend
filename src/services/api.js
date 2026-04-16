@@ -157,6 +157,8 @@ export const workoutsAPI = {
   // Calendar & Stats
   getWorkoutCalendar: (params) => api.get('/workouts/calendar', { params }),
   getWorkoutStats: (params) => api.get('/workouts/stats', { params }),
+  getCalendarFeedInfo: () => api.get('/workouts/calendar/feed-info'),
+  downloadIcs: () => api.get('/workouts/calendar.ics', { responseType: 'blob' }),
   getTemplates: (params) => api.get('/workouts/templates', { params }),
   createTemplate: (data) => api.post('/workouts/templates', data),
   customizeTemplate: (templateId, data) => api.post(`/workouts/templates/${templateId}/customize`, data),

@@ -28,6 +28,7 @@ const Navbar = () => {
           {hasRole(['client', 'both']) && (<>
             <li><NavLink to="/coaches" className={navCls}>Coaches</NavLink></li>
             <li><NavLink to="/my-workouts" className={navCls}>Workouts</NavLink></li>
+            <li><NavLink to="/calendar" className={navCls}>Calendar</NavLink></li>
             <li><NavLink to="/nutrition" className={navCls}>Nutrition</NavLink></li>
             <li><NavLink to="/analytics" className={navCls}>Analytics</NavLink></li>
             <li><NavLink to="/chat" className={navCls}>Chat</NavLink></li>
