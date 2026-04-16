@@ -130,6 +130,49 @@ const ClientProgress = () => {
         </div>
       )}
 
+      {/* WORKOUT PLANS */}
+      <div className="card fade-up fade-up-3">
+        <div className="section-header"><div><h2>Active workout plans</h2><p className="muted-text">{data.workout_plans?.length || 0} plans</p></div></div>
+        {!data.workout_plans?.length ? (
+          <p className="muted-text">No active plans assigned.</p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+            {data.workout_plans.map(plan => (
+              <div key={plan.id} style={{ padding: 16, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)' }}>
+                <div className="flex justify-between items-start mb-8">
+                  <strong style={{ fontSize: 15 }}>{plan.name}</strong>
+                  <span className="badge badge-green" style={{ fontSize: 10 }}>{plan.status}</span>
+                </div>
+                {plan.description && <p className="muted-text" style={{ fontSize: 12, marginBottom: 10, lineHeight: 1.4 }}>{plan.description}</p>}
+                <div className="flex flex-wrap gap-6">
+                  {plan.start_date && <span className="badge badge-muted" style={{ fontSize: 10 }}>{plan.start_date}</span>}
+                  {plan.end_date && <span className="badge badge-muted" style={{ fontSize: 10 }}>{plan.end_date}</span>}
+                  {plan.workout_days?.length > 0 && <span className="badge badge-teal" style={{ fontSize: 10 }}>{plan.workout_days.length} days</span>}
+                </div>
+                {plan.workout_days?.length > 0 && (
+                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                    {plan.workout_days.slice(0, 3).map((day, i) => (
+                      <div key={day.id || i} style={{ fontSize: 12, marginBottom: 4 }}>
+                        <strong style={{ color: 'var(--text-2)' }}>{day.name || `Day ${day.day_number || i + 1}`}</strong>
+                        {day.plan_exercises?.length > 0 && (
+                          <span className="muted-text" style={{ marginLeft: 6 }}>
+                            {day.plan_exercises.slice(0, 2).map(pe => pe.exercise?.name).filter(Boolean).join(', ')}
+                            {day.plan_exercises.length > 2 && ` +${day.plan_exercises.length - 2}`}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                    {plan.workout_days.length > 3 && (
+                      <p className="muted-text" style={{ fontSize: 11, marginTop: 4 }}>+{plan.workout_days.length - 3} more days</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* WORKOUT LOGS */}
       <div className="card fade-up fade-up-3">
         <div className="section-header"><div><h2>Workout logs</h2><p className="muted-text">{data.workout_logs?.length || 0} sessions</p></div></div>
