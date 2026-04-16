@@ -3,11 +3,26 @@ import { useAuth } from '../context/AuthContext';
 import { authAPI, profileAPI, surveysAPI, usersAPI } from '../services/api';
 import Avatar from '../components/Avatar';
 
+const PAGE_SIZE = 10;
+
+const PaginationControls = ({ page, totalPages, onPrev, onNext }) => {
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="flex justify-between items-center" style={{ marginTop: 12 }}>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={onPrev} disabled={page === 1}>← Prev</button>
+      <span className="muted-text" style={{ fontSize: 12 }}>Page {page} of {totalPages}</span>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={onNext} disabled={page === totalPages}>Next →</button>
+    </div>
+  );
+};
+
 const Profile = () => {
   const { user, updateUser, logout } = useAuth();
   const [profile, setProfile] = useState(null);
   const [survey, setSurvey] = useState(null);
   const [notifications, setNotifications] = useState([]);
+  const [notificationsPage, setNotificationsPage] = useState(1);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [profileForm, setProfileForm] = useState({ first_name:'', last_name:'', phone:'', bio:'', profile_picture:'' });
@@ -74,6 +89,15 @@ const Profile = () => {
     : user?.email || '';
   const initials = (profile?.profile?.first_name?.[0] || user?.email?.[0] || '?').toUpperCase();
   const roleColor = { client:'badge-green', coach:'badge-blue', both:'badge-teal', admin:'badge-amber' };
+  const notificationsTotalPages = Math.max(1, Math.ceil(notifications.length / PAGE_SIZE));
+  const pagedNotifications = notifications.slice(
+    (notificationsPage - 1) * PAGE_SIZE,
+    notificationsPage * PAGE_SIZE
+  );
+
+  useEffect(() => {
+    setNotificationsPage((p) => Math.min(p, notificationsTotalPages));
+  }, [notificationsTotalPages]);
 
   return (
     <div className="container page-shell">
@@ -155,7 +179,7 @@ const Profile = () => {
           <h2 style={{marginBottom:16}}>Notifications</h2>
           {notifications.length === 0 ? (
             <div style={{textAlign:'center',padding:'30px 0'}}><p style={{fontSize:28,marginBottom:8}}>🔔</p><p className="muted-text">No notifications yet.</p></div>
-          ) : notifications.map(n => (
+          ) : pagedNotifications.map(n => (
             <div key={n.id} className="list-row">
               <div className="flex gap-10">
                 {!n.read && <div style={{width:7,height:7,borderRadius:'50%',background:'var(--green)',flexShrink:0,marginTop:6}}/>}
@@ -170,6 +194,12 @@ const Profile = () => {
               )}
             </div>
           ))}
+          <PaginationControls
+            page={notificationsPage}
+            totalPages={notificationsTotalPages}
+            onPrev={() => setNotificationsPage((p) => Math.max(1, p - 1))}
+            onNext={() => setNotificationsPage((p) => Math.min(notificationsTotalPages, p + 1))}
+          />
         </div>
       </div>
 
