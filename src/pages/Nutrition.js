@@ -41,19 +41,31 @@ const Nutrition = () => {
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
-    try {
-      setLoading(true);
-      const [mr, mpr, dr, br, wr] = await Promise.all([
-        nutritionAPI.getMeals(), nutritionAPI.getMealPlans(), nutritionAPI.getDailyMetrics(),
-        nutritionAPI.getMetrics(), nutritionAPI.getWellness(),
-      ]);
-      if (mr.data.success) setMeals(mr.data.data.meals);
-      if (mpr.data.success) setMealPlans(mpr.data.data.meal_plans);
-      if (dr.data.success) setDailyMetrics(dr.data.data.daily_metrics);
-      if (br.data.success) setBodyMetrics(br.data.data.metrics);
-      if (wr.data.success) setWellnessLogs(wr.data.data.wellness);
-    } catch { setError('Failed to load nutrition data.'); }
-    finally { setLoading(false); }
+    setLoading(true);
+    setError('');
+
+    const results = await Promise.allSettled([
+      nutritionAPI.getMeals(),
+      nutritionAPI.getMealPlans(),
+      nutritionAPI.getDailyMetrics(),
+      nutritionAPI.getMetrics(),
+      nutritionAPI.getWellness(),
+    ]);
+
+    const [mr, mpr, dr, br, wr] = results;
+
+    if (mr.status === 'fulfilled' && mr.value.data.success) setMeals(mr.value.data.data.meals || []);
+    if (mpr.status === 'fulfilled' && mpr.value.data.success) setMealPlans(mpr.value.data.data.meal_plans || []);
+    if (dr.status === 'fulfilled' && dr.value.data.success) setDailyMetrics(dr.value.data.data.daily_metrics || []);
+    if (br.status === 'fulfilled' && br.value.data.success) setBodyMetrics(br.value.data.data.metrics || []);
+    if (wr.status === 'fulfilled' && wr.value.data.success) setWellnessLogs(wr.value.data.data.wellness || []);
+
+    const failures = results.filter((result) => result.status === 'rejected');
+    if (failures.length === results.length) {
+      setError('Failed to load nutrition data.');
+    }
+
+    setLoading(false);
   };
 
   const todayMeals = useMemo(() => meals.filter(m => m.date === today), [meals]);
