@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { coachesAPI } from '../services/api';
+import Avatar from '../components/Avatar';
 
 const Stars = ({ rating }) => (
   <div className="stars">{[1,2,3,4,5].map(i => <span key={i} className={`star ${i <= Math.round(rating) ? 'on' : ''}`}>★</span>)}</div>
@@ -72,9 +73,7 @@ const MyCoach = () => {
       <div className="card fade-up">
         <p className="eyebrow" style={{ marginBottom: 16 }}>Your coach</p>
         <div className="flex gap-20" style={{ flexWrap: 'wrap' }}>
-          <div style={{ width: 90, height: 90, borderRadius: '50%', background: 'linear-gradient(135deg, var(--green), var(--teal))', display: 'grid', placeItems: 'center', fontSize: 34, fontWeight: 700, color: '#000', flexShrink: 0, overflow: 'hidden', border: '3px solid rgba(63,185,80,0.3)' }}>
-            {coach.profile?.profile_picture ? <img src={coach.profile.profile_picture} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : initials}
-          </div>
+          <Avatar src={coach.profile?.profile_picture} name={name} size={90} style={{ border: '3px solid rgba(63,185,80,0.3)' }} />
           <div style={{ flex: 1 }}>
             <h1 style={{ marginBottom: 8 }}>{name}</h1>
             <div className="flex flex-wrap gap-8 mb-12">

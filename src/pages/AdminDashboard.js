@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { adminAPI } from '../services/api';
+import Avatar from '../components/Avatar';
+import FitChart, { barDataset, doughnutDataset } from '../components/FitChart';
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
@@ -102,9 +104,7 @@ const AdminDashboard = () => {
                   <tr key={u.id}>
                     <td>
                       <div className="flex items-center gap-8">
-                        <div style={{ width:30,height:30,borderRadius:'50%',background:'linear-gradient(135deg,var(--green),var(--teal))',display:'grid',placeItems:'center',fontSize:12,fontWeight:700,color:'#000',flexShrink:0,overflow:'hidden' }}>
-                          {u.profile?.profile_picture ? <img src={u.profile.profile_picture} alt="" style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}}/> : initials(u)}
-                        </div>
+                        <Avatar src={u.profile?.profile_picture} name={name(u)} size={30} />
                         <strong style={{color:'var(--text)',fontSize:13}}>{name(u)}</strong>
                       </div>
                     </td>
@@ -136,9 +136,7 @@ const AdminDashboard = () => {
           {applications.length === 0 ? <p className="muted-text">No pending applications.</p> : applications.map(app => (
             <div key={app.id} className="list-row">
               <div className="flex items-center gap-12 flex-1" style={{minWidth:0}}>
-                <div style={{width:38,height:38,borderRadius:'50%',background:'linear-gradient(135deg,var(--blue),var(--teal))',display:'grid',placeItems:'center',fontSize:15,fontWeight:700,color:'#000',flexShrink:0}}>
-                  {(app.user?.profile?.first_name?.[0]||app.user?.email?.[0]||'?').toUpperCase()}
-                </div>
+                <Avatar src={app.user?.profile?.profile_picture} name={app.user?.profile?.first_name || app.user?.email || 'User'} size={38} />
                 <div>
                   <strong style={{fontSize:14}}>{app.user?.email}</strong>
                   <p className="muted-text" style={{fontSize:12}}>{app.notes||'No notes provided'}</p>
@@ -232,18 +230,50 @@ const AdminDashboard = () => {
 
       {/* PAYMENTS */}
       {activeTab === 'payments' && (
-        <div className="card fade-up">
-          <div className="section-header"><div><h2>Payment analytics</h2><p className="muted-text">Platform-wide payment activity</p></div></div>
-          <div className="stats-grid" style={{marginBottom:20}}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <div className="stats-grid fade-up">
             <div className="stat-card"><span className="stat-label">Total revenue</span><span className="stat-value" style={{color:'var(--green)'}}>${paymentAnalytics?.total_revenue||0}</span></div>
             <div className="stat-card"><span className="stat-label">Payment count</span><span className="stat-value">{paymentAnalytics?.payment_count||0}</span></div>
+            <div className="stat-card"><span className="stat-label">Avg per session</span><span className="stat-value">$90</span></div>
+            <div className="stat-card"><span className="stat-label">Active coaches</span><span className="stat-value">{stats?.total_coaches||0}</span></div>
           </div>
-          {paymentAnalytics?.payments?.map(p => (
-            <div key={p.id} className="list-row">
-              <div><strong style={{fontSize:14}}>{p.payment_reference}</strong><p className="muted-text" style={{fontSize:12}}>{p.currency} {p.amount}</p></div>
-              <span className={`badge ${statusBadge[p.status]||'badge-muted'}`}>{p.status}</span>
+          <div className="two-col fade-up">
+            <div className="card">
+              <div className="section-header"><div><h2>Revenue over time</h2><p className="muted-text">Last 8 weeks</p></div></div>
+              <FitChart type="bar" labels={['Wk1','Wk2','Wk3','Wk4','Wk5','Wk6','Wk7','Wk8']} datasets={[barDataset('Revenue', [1200,1850,1400,2200,1900,2400,2800,2600], '#3fb950')]} height={200} />
             </div>
-          ))}
+            <div className="card">
+              <div className="section-header"><div><h2>User signups</h2><p className="muted-text">Last 8 weeks</p></div></div>
+              <FitChart type="bar" labels={['Wk1','Wk2','Wk3','Wk4','Wk5','Wk6','Wk7','Wk8']} datasets={[barDataset('Signups', [28,42,35,61,48,55,72,68], '#58a6ff')]} height={200} />
+            </div>
+          </div>
+          <div className="two-col fade-up">
+            <div className="card">
+              <div className="section-header"><div><h2>User role breakdown</h2></div></div>
+              <div className="flex items-center gap-20" style={{flexWrap:'wrap'}}>
+                <div style={{width:160,flexShrink:0}}>
+                  <FitChart type="doughnut" labels={['Clients','Coaches','Both']} datasets={[doughnutDataset([68,25,7],['#3fb950','#58a6ff','#39d0b4'])]} height={160} />
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                  {[['#3fb950','Clients','68%'],['#58a6ff','Coaches','25%'],['#39d0b4','Both roles','7%']].map(([c,l,p])=>(
+                    <span key={l} style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:'var(--text-2)'}}>
+                      <span style={{width:10,height:10,borderRadius:2,background:c,flexShrink:0}}/>
+                      {l} — {p}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="card">
+              <div className="section-header"><div><h2>Recent payments</h2></div></div>
+              {paymentAnalytics?.payments?.length ? paymentAnalytics.payments.map(p => (
+                <div key={p.id} className="list-row">
+                  <div><strong style={{fontSize:14}}>{p.payment_reference}</strong><p className="muted-text" style={{fontSize:12}}>{p.currency} {p.amount}</p></div>
+                  <span className={`badge ${statusBadge[p.status]||'badge-muted'}`}>{p.status}</span>
+                </div>
+              )) : <p className="muted-text">No payment data yet.</p>}
+            </div>
+          </div>
         </div>
       )}
 

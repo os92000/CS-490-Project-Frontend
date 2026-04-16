@@ -6,7 +6,7 @@ const Signup = () => {
   const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '', first_name: '', last_name: '' });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { register } = useAuth();
+  const { signup } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => { setFormData({ ...formData, [e.target.name]: e.target.value }); setError(''); };
@@ -17,7 +17,7 @@ const Signup = () => {
     if (formData.password.length < 6) { setError('Password must be at least 6 characters'); return; }
     setIsLoading(true);
     try {
-      const result = await register(formData);
+      const result = await signup(formData.email, formData.password);
       if (result.success) navigate('/role-selection');
       else setError(result.error || 'Registration failed');
     } catch { setError('An unexpected error occurred'); }

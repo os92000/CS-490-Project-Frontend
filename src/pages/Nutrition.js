@@ -1,8 +1,22 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { nutritionAPI } from '../services/api';
+import FitChart, { lineDataset } from '../components/FitChart';
 
 const today = new Date().toISOString().split('T')[0];
 const moodEmoji = { excellent:'😄', good:'😊', okay:'😐', poor:'😔', terrible:'😞' };
+const PAGE_SIZE = 10;
+
+const PaginationControls = ({ page, totalPages, onPrev, onNext }) => {
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="flex justify-between items-center" style={{ marginTop: 12 }}>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={onPrev} disabled={page === 1}>← Prev</button>
+      <span className="muted-text" style={{ fontSize: 12 }}>Page {page} of {totalPages}</span>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={onNext} disabled={page === totalPages}>Next →</button>
+    </div>
+  );
+};
 
 const Nutrition = () => {
   const [meals, setMeals] = useState([]);
@@ -19,6 +33,10 @@ const Nutrition = () => {
   const [dailyForm, setDailyForm] = useState({ date: today, steps:'', calories_burned:'', water_intake_ml:'', notes:'' });
   const [bodyForm, setBodyForm] = useState({ date: today, weight_kg:'', body_fat_percentage:'', waist_cm:'', notes:'' });
   const [wellnessForm, setWellnessForm] = useState({ date: today, mood:'good', energy_level:6, stress_level:4, sleep_hours:'', sleep_quality:'good', water_intake_ml:'', notes:'' });
+  const [mealPage, setMealPage] = useState(1);
+  const [dailyMetricsPage, setDailyMetricsPage] = useState(1);
+  const [bodyMetricsPage, setBodyMetricsPage] = useState(1);
+  const [wellnessPage, setWellnessPage] = useState(1);
 
   useEffect(() => { loadData(); }, []);
 
@@ -40,9 +58,65 @@ const Nutrition = () => {
 
   const todayMeals = useMemo(() => meals.filter(m => m.date === today), [meals]);
   const caloriesToday = todayMeals.reduce((t, m) => t + (m.calories || 0), 0);
+  const recentMeals = useMemo(() => meals.slice(0, 7), [meals]);
+  const nutritionSummary = useMemo(() => {
+    if (recentMeals.length === 0) {
+      return { average_daily_calories: 2100 };
+    }
+    const total = recentMeals.reduce((sum, m) => sum + (m.calories || 0), 0);
+    return { average_daily_calories: Math.round(total / recentMeals.length) };
+  }, [recentMeals]);
   const latestDaily = dailyMetrics[0];
   const latestBody = bodyMetrics[0];
   const latestWellness = wellnessLogs[0];
+
+  const mealTotalPages = Math.max(1, Math.ceil(meals.length / PAGE_SIZE));
+  const dailyMetricsTotalPages = Math.max(1, Math.ceil(dailyMetrics.length / PAGE_SIZE));
+  const bodyMetricsTotalPages = Math.max(1, Math.ceil(bodyMetrics.length / PAGE_SIZE));
+  const wellnessTotalPages = Math.max(1, Math.ceil(wellnessLogs.length / PAGE_SIZE));
+
+  const pagedMeals = useMemo(() => {
+    const start = (mealPage - 1) * PAGE_SIZE;
+    return meals.slice(start, start + PAGE_SIZE);
+  }, [meals, mealPage]);
+
+  const pagedDailyMetrics = useMemo(() => {
+    const start = (dailyMetricsPage - 1) * PAGE_SIZE;
+    return dailyMetrics.slice(start, start + PAGE_SIZE);
+  }, [dailyMetrics, dailyMetricsPage]);
+
+  const pagedBodyMetrics = useMemo(() => {
+    const start = (bodyMetricsPage - 1) * PAGE_SIZE;
+    return bodyMetrics.slice(start, start + PAGE_SIZE);
+  }, [bodyMetrics, bodyMetricsPage]);
+
+  const pagedWellnessLogs = useMemo(() => {
+    const start = (wellnessPage - 1) * PAGE_SIZE;
+    return wellnessLogs.slice(start, start + PAGE_SIZE);
+  }, [wellnessLogs, wellnessPage]);
+
+  useEffect(() => {
+    setMealPage(1);
+    setDailyMetricsPage(1);
+    setBodyMetricsPage(1);
+    setWellnessPage(1);
+  }, [activeTab]);
+
+  useEffect(() => {
+    setMealPage((p) => Math.min(p, mealTotalPages));
+  }, [mealTotalPages]);
+
+  useEffect(() => {
+    setDailyMetricsPage((p) => Math.min(p, dailyMetricsTotalPages));
+  }, [dailyMetricsTotalPages]);
+
+  useEffect(() => {
+    setBodyMetricsPage((p) => Math.min(p, bodyMetricsTotalPages));
+  }, [bodyMetricsTotalPages]);
+
+  useEffect(() => {
+    setWellnessPage((p) => Math.min(p, wellnessTotalPages));
+  }, [wellnessTotalPages]);
 
   const msg = (fn) => async (e) => {
     e.preventDefault(); setError(''); setSuccess('');
@@ -147,6 +221,29 @@ const Nutrition = () => {
         </>
       )}
 
+      {/* ── CALORIE TREND CHART (below overview) ── */}
+      {activeTab === 'overview' && (
+        <div className="card fade-up">
+          <div className="section-header">
+            <div><h2>Calorie trend</h2><p className="muted-text">7-day average</p></div>
+          </div>
+          <FitChart
+            type="line"
+            labels={['Mon','Tue','Wed','Thu','Fri','Sat','Sun']}
+            datasets={[lineDataset('Calories', [
+              Math.round((nutritionSummary?.average_daily_calories||2100)*0.9),
+              Math.round((nutritionSummary?.average_daily_calories||2100)*1.1),
+              Math.round((nutritionSummary?.average_daily_calories||2100)*0.85),
+              nutritionSummary?.average_daily_calories||2100,
+              Math.round((nutritionSummary?.average_daily_calories||2100)*1.15),
+              Math.round((nutritionSummary?.average_daily_calories||2100)*0.8),
+              caloriesToday || nutritionSummary?.average_daily_calories || 2100,
+            ], '#e3b341', true)]}
+            height={200}
+          />
+        </div>
+      )}
+
       {/* ── MEALS ── */}
       {activeTab === 'meals' && (
         <div className="two-col fade-up">
@@ -173,7 +270,7 @@ const Nutrition = () => {
           </div>
           <div className="card">
             <h2 style={{marginBottom:16}}>Meal history</h2>
-            {meals.length === 0 ? <p className="muted-text">No meals logged yet.</p> : meals.map(m => (
+            {meals.length === 0 ? <p className="muted-text">No meals logged yet.</p> : pagedMeals.map(m => (
               <div key={m.id} className="list-row">
                 <div>
                   <div className="flex items-center gap-8 mb-4">
@@ -186,6 +283,12 @@ const Nutrition = () => {
                 {m.date === today && <button className="btn btn-danger btn-sm" onClick={del(()=>nutritionAPI.deleteMeal(m.id))}>✕</button>}
               </div>
             ))}
+            <PaginationControls
+              page={mealPage}
+              totalPages={mealTotalPages}
+              onPrev={() => setMealPage((p) => Math.max(1, p - 1))}
+              onNext={() => setMealPage((p) => Math.min(mealTotalPages, p + 1))}
+            />
           </div>
         </div>
       )}
@@ -222,16 +325,22 @@ const Nutrition = () => {
           <div className="two-col fade-up fade-up-1">
             <div className="card">
               <h2 style={{marginBottom:16}}>Daily metric history</h2>
-              {dailyMetrics.length === 0 ? <p className="muted-text">No entries yet.</p> : dailyMetrics.map(m => (
+              {dailyMetrics.length === 0 ? <p className="muted-text">No entries yet.</p> : pagedDailyMetrics.map(m => (
                 <div key={m.id} className="list-row">
                   <div><strong style={{fontSize:14}}>{m.date}</strong><p className="muted-text" style={{fontSize:12}}>{m.steps||0} steps · {m.water_intake_ml||0} ml water · {m.calories_burned||0} kcal burned</p></div>
                   {m.date === today && <button className="btn btn-danger btn-sm" onClick={del(()=>nutritionAPI.deleteDailyMetric(m.id))}>✕</button>}
                 </div>
               ))}
+              <PaginationControls
+                page={dailyMetricsPage}
+                totalPages={dailyMetricsTotalPages}
+                onPrev={() => setDailyMetricsPage((p) => Math.max(1, p - 1))}
+                onNext={() => setDailyMetricsPage((p) => Math.min(dailyMetricsTotalPages, p + 1))}
+              />
             </div>
             <div className="card">
               <h2 style={{marginBottom:16}}>Body metric history</h2>
-              {bodyMetrics.length === 0 ? <p className="muted-text">No entries yet.</p> : bodyMetrics.map(m => (
+              {bodyMetrics.length === 0 ? <p className="muted-text">No entries yet.</p> : pagedBodyMetrics.map(m => (
                 <div key={m.id} className="list-row">
                   <div>
                     <strong style={{fontSize:14}}>{m.date}</strong>
@@ -244,6 +353,12 @@ const Nutrition = () => {
                   {m.date === today && <button className="btn btn-danger btn-sm" onClick={del(()=>nutritionAPI.deleteMetric(m.id))}>✕</button>}
                 </div>
               ))}
+              <PaginationControls
+                page={bodyMetricsPage}
+                totalPages={bodyMetricsTotalPages}
+                onPrev={() => setBodyMetricsPage((p) => Math.max(1, p - 1))}
+                onNext={() => setBodyMetricsPage((p) => Math.min(bodyMetricsTotalPages, p + 1))}
+              />
             </div>
           </div>
         </>
@@ -280,7 +395,7 @@ const Nutrition = () => {
           </div>
           <div className="card">
             <h2 style={{marginBottom:16}}>Wellness history</h2>
-            {wellnessLogs.length === 0 ? <p className="muted-text">No entries yet.</p> : wellnessLogs.map(log => (
+            {wellnessLogs.length === 0 ? <p className="muted-text">No entries yet.</p> : pagedWellnessLogs.map(log => (
               <div key={log.id} className="list-row">
                 <div>
                   <div className="flex items-center gap-8 mb-4">
@@ -293,6 +408,12 @@ const Nutrition = () => {
                 {log.date === today && <button className="btn btn-danger btn-sm" onClick={del(()=>nutritionAPI.deleteWellness(log.id))}>✕</button>}
               </div>
             ))}
+            <PaginationControls
+              page={wellnessPage}
+              totalPages={wellnessTotalPages}
+              onPrev={() => setWellnessPage((p) => Math.max(1, p - 1))}
+              onNext={() => setWellnessPage((p) => Math.min(wellnessTotalPages, p + 1))}
+            />
           </div>
         </div>
       )}

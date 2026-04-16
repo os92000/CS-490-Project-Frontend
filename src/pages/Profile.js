@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { authAPI, profileAPI, surveysAPI, usersAPI } from '../services/api';
+import Avatar from '../components/Avatar';
 
 const Profile = () => {
   const { user, updateUser, logout } = useAuth();
@@ -80,11 +81,7 @@ const Profile = () => {
       <div className="page-hero fade-up">
         <div className="flex items-center gap-24" style={{ flexWrap:'wrap' }}>
           <div style={{ position:'relative' }}>
-            <div style={{ width:80,height:80,borderRadius:'50%',background:'linear-gradient(135deg,var(--green),var(--teal))',display:'grid',placeItems:'center',fontSize:30,fontWeight:700,color:'#000',overflow:'hidden',border:'3px solid rgba(63,185,80,0.3)',flexShrink:0 }}>
-              {profile?.profile?.profile_picture
-                ? <img src={profile.profile.profile_picture} alt={name} style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}}/>
-                : initials}
-            </div>
+            <Avatar src={profile?.profile?.profile_picture} name={name} size={80} style={{ border: '3px solid rgba(63,185,80,0.3)' }} />
             <label htmlFor="pic-upload" style={{ position:'absolute',bottom:0,right:0,background:'var(--bg-2)',border:'1px solid var(--border)',borderRadius:'50%',width:24,height:24,display:'grid',placeItems:'center',cursor:'pointer',fontSize:12 }} title="Upload photo">📷</label>
             <input id="pic-upload" type="file" accept="image/*" onChange={uploadPicture} style={{display:'none'}}/>
           </div>
