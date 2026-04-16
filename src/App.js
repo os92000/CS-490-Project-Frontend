@@ -14,6 +14,7 @@ import MyCoach from './pages/MyCoach';
 import MyClients from './pages/MyClients';
 import Chat from './pages/Chat';
 import MyWorkouts from './pages/MyWorkouts';
+import Calendar from './pages/Calendar';
 import CreateWorkoutPlan from './pages/CreateWorkoutPlan';
 import Nutrition from './pages/Nutrition';
 import Analytics from './pages/Analytics';
@@ -162,6 +163,14 @@ function App() {
           element={
             <ProtectedRoute>
               <CreateWorkoutPlan />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/calendar"
+          element={
+            <ProtectedRoute>
+              <Calendar />
             </ProtectedRoute>
           }
         />
