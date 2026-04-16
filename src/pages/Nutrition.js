@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { nutritionAPI } from '../services/api';
 import FitChart, { lineDataset } from '../components/FitChart';
+import { buildBucketSeries } from '../utils/chartSeries';
 
 const today = new Date().toISOString().split('T')[0];
 const moodEmoji = { excellent:'😄', good:'😊', okay:'😐', poor:'😔', terrible:'😞' };
@@ -71,6 +72,14 @@ const Nutrition = () => {
   const todayMeals = useMemo(() => meals.filter(m => m.date === today), [meals]);
   const caloriesToday = todayMeals.reduce((t, m) => t + (m.calories || 0), 0);
   const recentMeals = useMemo(() => meals.slice(0, 7), [meals]);
+  const calorieTrendSeries = useMemo(() => buildBucketSeries(meals, {
+    periods: 7,
+    daysPerPeriod: 1,
+    dateAccessor: (meal) => meal.date,
+    valueAccessor: (meal) => Number(meal.calories) || 0,
+    aggregate: 'sum',
+    labelFormatter: (date) => date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
+  }), [meals]);
   const nutritionSummary = useMemo(() => {
     if (recentMeals.length === 0) {
       return { average_daily_calories: 2100 };
@@ -237,20 +246,12 @@ const Nutrition = () => {
       {activeTab === 'overview' && (
         <div className="card fade-up">
           <div className="section-header">
-            <div><h2>Calorie trend</h2><p className="muted-text">7-day average</p></div>
+            <div><h2>Calorie trend</h2><p className="muted-text">Last 7 days</p></div>
           </div>
           <FitChart
             type="line"
-            labels={['Mon','Tue','Wed','Thu','Fri','Sat','Sun']}
-            datasets={[lineDataset('Calories', [
-              Math.round((nutritionSummary?.average_daily_calories||2100)*0.9),
-              Math.round((nutritionSummary?.average_daily_calories||2100)*1.1),
-              Math.round((nutritionSummary?.average_daily_calories||2100)*0.85),
-              nutritionSummary?.average_daily_calories||2100,
-              Math.round((nutritionSummary?.average_daily_calories||2100)*1.15),
-              Math.round((nutritionSummary?.average_daily_calories||2100)*0.8),
-              caloriesToday || nutritionSummary?.average_daily_calories || 2100,
-            ], '#e3b341', true)]}
+            labels={calorieTrendSeries.labels}
+            datasets={[lineDataset('Calories', calorieTrendSeries.values, '#e3b341', true)]}
             height={200}
           />
         </div>

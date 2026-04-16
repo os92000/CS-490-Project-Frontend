@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
+import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import RoleSelection from './pages/RoleSelection';
@@ -20,6 +21,7 @@ import Profile from './pages/Profile';
 import CoachSettings from './pages/CoachSettings';
 import AdminDashboard from './pages/AdminDashboard';
 import ClientProgress from './pages/ClientProgress';
+import TopCoachesPage from './pages/TopCoachesPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireAuth = true, redirectTo = '/login' }) => {
@@ -48,7 +50,13 @@ function App() {
       {isAuthenticated && <Navbar />}
 
       <Routes>
-        {/* Public routes (redirect to dashboard if logged in) */}
+        {/* Public routes */}
+        <Route
+          path="/"
+          element={
+            <LandingPage />
+          }
+        />
         <Route
           path="/login"
           element={
@@ -100,6 +108,10 @@ function App() {
               <BrowseCoaches />
             </ProtectedRoute>
           }
+        />
+        <Route
+          path="/top-coaches"
+          element={<TopCoachesPage />}
         />
         <Route
           path="/coaches/:coachId"
@@ -201,9 +213,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
-        {/* Default redirect */}
-        <Route path="/" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} />
 
         {/* 404 catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
