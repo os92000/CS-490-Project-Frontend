@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { coachesAPI } from '../services/api';
+import Avatar from '../components/Avatar';
 
 const Stars = ({ rating, size = 16 }) => (
   <div className="stars">
@@ -71,9 +72,7 @@ const CoachProfile = () => {
       {/* HERO CARD */}
       <div className="card fade-up">
         <div className="flex gap-24" style={{ flexWrap: 'wrap' }}>
-          <div style={{ width: 100, height: 100, borderRadius: '50%', background: 'linear-gradient(135deg, var(--green), var(--teal))', display: 'grid', placeItems: 'center', fontSize: 38, fontWeight: 700, color: '#000', flexShrink: 0, overflow: 'hidden', border: '3px solid rgba(63,185,80,0.3)' }}>
-            {coach.profile?.profile_picture ? <img src={coach.profile.profile_picture} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : initials}
-          </div>
+          <Avatar src={coach.profile?.profile_picture} name={name} size={100} style={{ border: '3px solid rgba(63,185,80,0.3)' }} />
           <div style={{ flex: 1, minWidth: 220 }}>
             <h1 style={{ marginBottom: 6 }}>{name}</h1>
             <div className="flex items-center gap-10 mb-12">

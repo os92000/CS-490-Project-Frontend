@@ -208,7 +208,7 @@ export const profileAPI = {
 export const analyticsAPI = {
   getWorkoutSummary: (params) => api.get('/analytics/workout-summary', { params }),
   getNutritionSummary: (params) => api.get('/analytics/nutrition-summary', { params }),
-  getProgress: () => api.get('/analytics/progress'),
+  getProgress: (params) => api.get('/analytics/progress', { params }),
 };
 
 // ============================================

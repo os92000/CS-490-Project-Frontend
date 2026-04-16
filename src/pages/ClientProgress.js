@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { coachesAPI } from '../services/api';
+import Avatar from '../components/Avatar';
+import FitChart, { lineDataset, barDataset } from '../components/FitChart';
 
 const moodEmoji = { excellent:'😄', good:'😊', okay:'😐', poor:'😔', terrible:'😞' };
 
@@ -32,9 +34,7 @@ const ClientProgress = () => {
       {/* HERO */}
       <div className="page-hero fade-up">
         <div className="flex items-center gap-20" style={{ flexWrap: 'wrap' }}>
-          <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg, var(--blue), var(--teal))', display: 'grid', placeItems: 'center', fontSize: 28, fontWeight: 700, color: '#000', flexShrink: 0, overflow: 'hidden', border: '3px solid rgba(88,166,255,0.3)' }}>
-            {client?.profile?.profile_picture ? <img src={client.profile.profile_picture} alt={name} style={{ width:'100%', height:'100%', objectFit:'cover', borderRadius:'50%' }} /> : initials}
-          </div>
+          <Avatar src={client?.profile?.profile_picture} name={name} size={72} style={{ border: '3px solid rgba(88,166,255,0.3)' }} />
           <div className="hero-copy">
             <p className="eyebrow">Client progress</p>
             <h1>{name}</h1>
@@ -101,6 +101,34 @@ const ClientProgress = () => {
           ))}
         </div>
       </div>
+
+      {/* PROGRESS CHARTS */}
+      {(data.body_metrics?.length >= 2 || data.workout_logs?.length >= 2) && (
+        <div className="two-col fade-up fade-up-3">
+          {data.body_metrics?.length >= 2 && (
+            <div className="card">
+              <div className="section-header"><div><h2>Weight trend</h2><p className="muted-text">Body metrics history</p></div></div>
+              <FitChart
+                type="line"
+                labels={[...data.body_metrics].reverse().map(m => m.date?.slice(5) || '')}
+                datasets={[lineDataset('Weight (kg)', [...data.body_metrics].reverse().map(m => parseFloat(m.weight_kg) || null), '#39d0b4', true)]}
+                height={160}
+              />
+            </div>
+          )}
+          {data.workout_logs?.length >= 2 && (
+            <div className="card">
+              <div className="section-header"><div><h2>Session ratings</h2><p className="muted-text">Workout quality trend</p></div></div>
+              <FitChart
+                type="bar"
+                labels={[...data.workout_logs].reverse().map(l => l.date?.slice(5) || '')}
+                datasets={[barDataset('Rating', [...data.workout_logs].reverse().map(l => l.rating || 0), '#e3b341')]}
+                height={160}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* WORKOUT LOGS */}
       <div className="card fade-up fade-up-3">

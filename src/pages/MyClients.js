@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { coachesAPI } from '../services/api';
+import Avatar from '../components/Avatar';
 
 const MyClients = () => {
   const [clients, setClients] = useState([]);
@@ -70,9 +71,7 @@ const MyClients = () => {
                 {clients.map(client => (
                   <div key={client.id} className="card card-hover" style={{ borderRadius: 16 }}>
                     <div className="flex items-center gap-14 mb-14">
-                      <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, var(--blue), var(--teal))', display: 'grid', placeItems: 'center', fontSize: 22, fontWeight: 700, color: '#000', flexShrink: 0, overflow: 'hidden' }}>
-                        {client.profile?.profile_picture ? <img src={client.profile.profile_picture} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : initials(client.profile, client.email)}
-                      </div>
+                      <Avatar src={client.profile?.profile_picture} name={fullName(client.profile, client.email)} size={56} />
                       <div>
                         <h3 style={{ marginBottom: 3 }}>{fullName(client.profile, client.email)}</h3>
                         <p className="muted-text" style={{ fontSize: 12 }}>{client.email}</p>
@@ -101,9 +100,7 @@ const MyClients = () => {
                 {requests.map(req => (
                   <div key={req.id} className="card" style={{ borderRadius: 16 }}>
                     <div className="flex items-center gap-16" style={{ flexWrap: 'wrap' }}>
-                      <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'linear-gradient(135deg, var(--blue), var(--teal))', display: 'grid', placeItems: 'center', fontSize: 20, fontWeight: 700, color: '#000', flexShrink: 0 }}>
-                        {initials(req.client?.profile, req.client?.email)}
-                      </div>
+                      <Avatar src={req.client?.profile?.profile_picture} name={fullName(req.client?.profile, req.client?.email)} size={52} />
                       <div style={{ flex: 1 }}>
                         <h3 style={{ marginBottom: 4 }}>{fullName(req.client?.profile, req.client?.email)}</h3>
                         <p className="muted-text" style={{ fontSize: 13 }}>{req.client?.email}</p>
