@@ -5,7 +5,6 @@ import { workoutsAPI } from '../services/api';
 const pad = n => String(n).padStart(2, '0');
 const toISODate = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const parseISODate = s => {
-  // s is "YYYY-MM-DD"; construct as LOCAL date so day cells line up
   const [y, m, d] = s.split('-').map(Number);
   return new Date(y, m - 1, d);
 };
@@ -18,7 +17,7 @@ const weekdayShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 // Build a 6-row (42 cell) grid for the given month
 const buildMonthGrid = anchor => {
   const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
-  const startOffset = first.getDay(); // 0 = Sunday
+  const startOffset = first.getDay();
   const gridStart = new Date(first);
   gridStart.setDate(first.getDate() - startOffset);
   return Array.from({ length: 42 }, (_, i) => {
@@ -32,15 +31,16 @@ const Calendar = () => {
   const today = useMemo(() => new Date(), []);
   const [anchor, setAnchor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [selected, setSelected] = useState(today);
-  const [assignments, setAssignments] = useState([]);
+  const [scheduledDays, setScheduledDays] = useState([]);
   const [logs, setLogs] = useState([]);
-  const [plans, setPlans] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [plansWithoutDates, setPlansWithoutDates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Assign form
-  const [assignForm, setAssignForm] = useState({ plan_id: '', workout_day_id: '' });
+  // Note form
+  const [noteText, setNoteText] = useState('');
 
   // Subscription / share panel
   const [showShare, setShowShare] = useState(false);
@@ -51,18 +51,16 @@ const Calendar = () => {
   const loadMonth = async target => {
     try {
       setLoading(true);
-      const [cal, pl] = await Promise.all([
-        workoutsAPI.getWorkoutCalendar({
-          year: target.getFullYear(),
-          month: target.getMonth() + 1,
-        }),
-        workoutsAPI.getWorkoutPlans().catch(() => null),
-      ]);
+      const cal = await workoutsAPI.getWorkoutCalendar({
+        year: target.getFullYear(),
+        month: target.getMonth() + 1,
+      });
       if (cal?.data?.success) {
-        setAssignments(cal.data.data.assignments || []);
+        setScheduledDays(cal.data.data.scheduled_days || []);
         setLogs(cal.data.data.logs || []);
+        setNotes(cal.data.data.notes || []);
+        setPlansWithoutDates(cal.data.data.plans_without_dates || []);
       }
-      if (pl?.data?.success) setPlans(pl.data.data.plans || []);
     } catch {
       setError('Failed to load calendar data.');
     } finally {
@@ -76,16 +74,16 @@ const Calendar = () => {
   }, [anchor]);
 
   // ---- derived lookups keyed by YYYY-MM-DD ----
-  const assignmentsByDay = useMemo(() => {
+  const scheduledByDay = useMemo(() => {
     const m = new Map();
-    assignments.forEach(a => {
-      const key = a.assigned_date;
+    scheduledDays.forEach(s => {
+      const key = s.scheduled_date;
       if (!key) return;
       if (!m.has(key)) m.set(key, []);
-      m.get(key).push(a);
+      m.get(key).push(s);
     });
     return m;
-  }, [assignments]);
+  }, [scheduledDays]);
 
   const logsByDay = useMemo(() => {
     const m = new Map();
@@ -97,6 +95,17 @@ const Calendar = () => {
     });
     return m;
   }, [logs]);
+
+  const notesByDay = useMemo(() => {
+    const m = new Map();
+    notes.forEach(n => {
+      const key = n.date;
+      if (!key) return;
+      if (!m.has(key)) m.set(key, []);
+      m.get(key).push(n);
+    });
+    return m;
+  }, [notes]);
 
   const grid = useMemo(() => buildMonthGrid(anchor), [anchor]);
 
@@ -110,12 +119,12 @@ const Calendar = () => {
       return d >= visibleStart && d <= visibleEnd;
     };
     const monthLogs = logs.filter(l => inMonth(l.date));
-    const monthAssignments = assignments.filter(a => inMonth(a.assigned_date));
+    const monthScheduled = scheduledDays.filter(s => inMonth(s.scheduled_date));
     const completed = monthLogs.filter(l => l.completed !== false).length;
-    const upcoming = monthAssignments.filter(a => parseISODate(a.assigned_date) >= today).length;
+    const upcoming = monthScheduled.filter(s => parseISODate(s.scheduled_date) >= today).length;
     const minutes = monthLogs.reduce((sum, l) => sum + (l.duration_minutes || 0), 0);
-    return { completed, upcoming, minutes, scheduled: monthAssignments.length };
-  }, [logs, assignments, anchor, today]);
+    return { completed, upcoming, minutes, scheduled: monthScheduled.length };
+  }, [logs, scheduledDays, anchor, today]);
 
   // ---- actions ----
   const goPrev = () => setAnchor(d => addMonths(d, -1));
@@ -127,43 +136,40 @@ const Calendar = () => {
   };
 
   const selectedKey = toISODate(selected);
-  const selectedAssignments = assignmentsByDay.get(selectedKey) || [];
+  const selectedScheduled = scheduledByDay.get(selectedKey) || [];
   const selectedLogs = logsByDay.get(selectedKey) || [];
+  const selectedNotes = notesByDay.get(selectedKey) || [];
 
-  const selectedPlan = plans.find(p => String(p.id) === String(assignForm.plan_id));
-  const selectedPlanDays = selectedPlan?.days || selectedPlan?.workout_days || [];
-
-  const handleAssign = async e => {
+  const handleAddNote = async e => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    if (!assignForm.plan_id) {
-      setError('Pick a workout plan first.');
+    if (!noteText.trim()) {
+      setError('Write something first.');
       return;
     }
     try {
-      await workoutsAPI.createAssignment({
-        plan_id: Number(assignForm.plan_id),
-        workout_day_id: assignForm.workout_day_id ? Number(assignForm.workout_day_id) : null,
-        assigned_date: selectedKey,
+      await workoutsAPI.createCalendarNote({
+        date: selectedKey,
+        note: noteText.trim(),
       });
-      setSuccess(`Scheduled on ${selected.toLocaleDateString()}`);
-      setAssignForm({ plan_id: '', workout_day_id: '' });
+      setSuccess('Note added.');
+      setNoteText('');
       loadMonth(anchor);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to schedule workout.');
+      setError(err.response?.data?.message || 'Failed to add note.');
     }
   };
 
-  const handleUnassign = async assignmentId => {
+  const handleDeleteNote = async noteId => {
     setError('');
     setSuccess('');
     try {
-      await workoutsAPI.deleteAssignment(assignmentId);
-      setSuccess('Removed from calendar.');
+      await workoutsAPI.deleteCalendarNote(noteId);
+      setSuccess('Note removed.');
       loadMonth(anchor);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to remove assignment.');
+      setError(err.response?.data?.message || 'Failed to remove note.');
     }
   };
 
@@ -214,7 +220,7 @@ const Calendar = () => {
             <p className="eyebrow">Planning</p>
             <h1>Workout Calendar</h1>
             <p className="page-copy">
-              Schedule your training, track what you completed, and sync everything to Apple,
+              See your scheduled training, add personal notes, and sync everything to Apple,
               Google, or Outlook.
             </p>
           </div>
@@ -273,9 +279,10 @@ const Calendar = () => {
               const inMonth = d.getMonth() === anchor.getMonth();
               const isToday = sameDay(d, today);
               const isSelected = sameDay(d, selected);
-              const dayAssignments = assignmentsByDay.get(key) || [];
+              const dayScheduled = scheduledByDay.get(key) || [];
               const dayLogs = logsByDay.get(key) || [];
-              const hasEvents = dayAssignments.length + dayLogs.length > 0;
+              const dayNotes = notesByDay.get(key) || [];
+              const hasEvents = dayScheduled.length + dayLogs.length + dayNotes.length > 0;
               return (
                 <button
                   key={i}
@@ -324,10 +331,10 @@ const Calendar = () => {
 
                   {/* Event pills (max 2 visible, +N indicator) */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    {dayAssignments.slice(0, 2).map(a => (
+                    {dayScheduled.slice(0, 2).map(s => (
                       <span
-                        key={`a-${a.id}`}
-                        title={a.plan?.name || 'Workout'}
+                        key={`s-${s.id}`}
+                        title={s.plan_name}
                         style={{
                           fontSize: 11,
                           padding: '2px 6px',
@@ -341,10 +348,10 @@ const Calendar = () => {
                           fontWeight: 500,
                         }}
                       >
-                        💪 {a.plan?.name || 'Workout'}
+                        💪 {s.plan_name}{s.day_name ? ` — ${s.day_name}` : ''}
                       </span>
                     ))}
-                    {dayLogs.slice(0, Math.max(0, 2 - dayAssignments.length)).map(l => (
+                    {dayLogs.slice(0, Math.max(0, 2 - dayScheduled.length)).map(l => (
                       <span
                         key={`l-${l.id}`}
                         title={l.workout_name || 'Completed session'}
@@ -364,9 +371,29 @@ const Calendar = () => {
                         ✅ {l.workout_name || 'Session'}
                       </span>
                     ))}
-                    {(dayAssignments.length + dayLogs.length) > 2 && (
+                    {dayNotes.slice(0, Math.max(0, 2 - dayScheduled.length - dayLogs.length)).map(n => (
+                      <span
+                        key={`n-${n.id}`}
+                        title={n.note}
+                        style={{
+                          fontSize: 11,
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                          background: 'rgba(155,135,245,0.15)',
+                          color: '#9b87f5',
+                          border: '1px solid rgba(155,135,245,0.3)',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          fontWeight: 500,
+                        }}
+                      >
+                        📝 {n.note.substring(0, 20)}{n.note.length > 20 ? '…' : ''}
+                      </span>
+                    ))}
+                    {(dayScheduled.length + dayLogs.length + dayNotes.length) > 2 && (
                       <span style={{ fontSize: 10, color: 'var(--text-3)', paddingLeft: 2 }}>
-                        +{dayAssignments.length + dayLogs.length - 2} more
+                        +{dayScheduled.length + dayLogs.length + dayNotes.length - 2} more
                       </span>
                     )}
                   </div>
@@ -386,96 +413,118 @@ const Calendar = () => {
               {selected.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
             </h3>
 
-            {/* Scheduled */}
+            {/* Scheduled workouts (auto-distributed) */}
             <p className="muted-text" style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
               Scheduled
             </p>
-            {selectedAssignments.length === 0 ? (
+            {selectedScheduled.length === 0 ? (
               <p className="muted-text" style={{ fontSize: 13, marginBottom: 14 }}>Nothing scheduled.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
-                {selectedAssignments.map(a => (
-                  <div key={a.id} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(57,208,180,0.3)', background: 'rgba(57,208,180,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--teal)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        💪 {a.plan?.name || 'Workout'}
-                      </div>
-                      {a.workout_day?.name && (
-                        <div className="muted-text" style={{ fontSize: 12 }}>{a.workout_day.name}</div>
-                      )}
+                {selectedScheduled.map(s => (
+                  <div key={s.id} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(57,208,180,0.3)', background: 'rgba(57,208,180,0.08)' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--teal)' }}>
+                      💪 {s.plan_name}
                     </div>
-                    <button className="btn btn-ghost btn-sm" onClick={() => handleUnassign(a.id)} title="Remove from calendar">✕</button>
+                    {s.day_name && (
+                      <div className="muted-text" style={{ fontSize: 12 }}>{s.day_name}</div>
+                    )}
+                    {s.exercises && s.exercises.length > 0 && (
+                      <div style={{ marginTop: 6 }}>
+                        {s.exercises.map((ex, idx) => (
+                          <span key={idx} className="badge badge-muted" style={{ marginRight: 4, marginBottom: 4, display: 'inline-block' }}>
+                            {ex.name}{ex.sets ? ` · ${ex.sets}×${ex.reps}` : ''}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Completed */}
+            {/* Notes */}
             <p className="muted-text" style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
-              Completed
+              Notes
             </p>
-            {selectedLogs.length === 0 ? (
-              <p className="muted-text" style={{ fontSize: 13, marginBottom: 14 }}>No sessions logged.</p>
+            {selectedNotes.length === 0 ? (
+              <p className="muted-text" style={{ fontSize: 13, marginBottom: 14 }}>No notes for this day.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
-                {selectedLogs.map(l => (
-                  <div key={l.id} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(63,185,80,0.3)', background: 'rgba(63,185,80,0.08)' }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--green)' }}>
-                      ✅ {l.workout_name || l.plan?.name || 'Session'}
+                {selectedNotes.map(n => (
+                  <div key={n.id} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(155,135,245,0.3)', background: 'rgba(155,135,245,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                    <div style={{ fontSize: 13, color: '#9b87f5', flex: 1 }}>
+                      {n.note}
                     </div>
-                    <div className="muted-text" style={{ fontSize: 12 }}>
-                      {l.duration_minutes ? `${l.duration_minutes} min` : ''}
-                      {l.rating ? ` · ${'★'.repeat(l.rating)}` : ''}
-                    </div>
-                    {l.notes && <div className="muted-text" style={{ fontSize: 12, marginTop: 4 }}>{l.notes}</div>}
+                    <button className="btn btn-ghost btn-sm" onClick={() => handleDeleteNote(n.id)} title="Delete note" style={{ fontSize: 14, padding: '2px 6px' }}>✕</button>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Quick-assign form */}
+            {/* Add note form */}
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
               <p className="muted-text" style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
-                Schedule a plan
+                Add a note
               </p>
-              <form onSubmit={handleAssign} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div className="form-group">
-                  <label>Plan</label>
-                  <select
-                    value={assignForm.plan_id}
-                    onChange={e => setAssignForm({ plan_id: e.target.value, workout_day_id: '' })}
-                  >
-                    <option value="">Select a plan…</option>
-                    {plans.map(p => (
-                      <option key={p.id} value={p.id}>{p.name || p.title}</option>
-                    ))}
-                  </select>
-                </div>
-                {selectedPlanDays.length > 0 && (
-                  <div className="form-group">
-                    <label>Day (optional)</label>
-                    <select
-                      value={assignForm.workout_day_id}
-                      onChange={e => setAssignForm(f => ({ ...f, workout_day_id: e.target.value }))}
-                    >
-                      <option value="">Whole plan</option>
-                      {selectedPlanDays.map(d => (
-                        <option key={d.id} value={d.id}>{d.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                <button type="submit" className="btn btn-primary btn-sm" disabled={!assignForm.plan_id}>
-                  + Schedule for {selected.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+              <form onSubmit={handleAddNote} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <textarea
+                  rows={2}
+                  value={noteText}
+                  onChange={e => setNoteText(e.target.value)}
+                  placeholder="Rest day, focus on mobility…"
+                  style={{ resize: 'vertical', fontSize: 13 }}
+                />
+                <button type="submit" className="btn btn-primary btn-sm" disabled={!noteText.trim()}>
+                  + Add note
                 </button>
-                {plans.length === 0 && (
-                  <p className="muted-text" style={{ fontSize: 12 }}>
-                    You don't have any workout plans yet. Create one in Workouts → Create plan.
-                  </p>
-                )}
               </form>
             </div>
+
+            {/* Completed */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, marginTop: 14 }}>
+              <p className="muted-text" style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+                Completed
+              </p>
+              {selectedLogs.length === 0 ? (
+                <p className="muted-text" style={{ fontSize: 13 }}>No sessions logged.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {selectedLogs.map(l => (
+                    <div key={l.id} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(63,185,80,0.3)', background: 'rgba(63,185,80,0.08)' }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--green)' }}>
+                        ✅ {l.workout_name || l.plan?.name || 'Session'}
+                      </div>
+                      <div className="muted-text" style={{ fontSize: 12 }}>
+                        {l.duration_minutes ? `${l.duration_minutes} min` : ''}
+                        {l.rating ? ` · ${'★'.repeat(l.rating)}` : ''}
+                      </div>
+                      {l.notes && <div className="muted-text" style={{ fontSize: 12, marginTop: 4 }}>{l.notes}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Plans without dates */}
+          {plansWithoutDates.length > 0 && (
+            <div className="card" style={{ borderColor: 'rgba(227,179,65,0.3)', background: 'rgba(227,179,65,0.04)' }}>
+              <p className="eyebrow" style={{ marginBottom: 10, color: 'var(--amber)' }}>Plans without dates</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {plansWithoutDates.map(p => (
+                  <div key={p.id} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(227,179,65,0.2)', background: 'rgba(227,179,65,0.06)' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--amber)' }}>
+                      {p.name}
+                    </div>
+                    <p className="muted-text" style={{ fontSize: 12, marginTop: 4 }}>
+                      No start/end dates set — edit the plan to add a schedule.
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Legend */}
           <div className="card" style={{ padding: 16 }}>
@@ -488,6 +537,10 @@ const Calendar = () => {
               <div className="flex items-center gap-8">
                 <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--green)' }} />
                 <span className="muted-text">Completed session</span>
+              </div>
+              <div className="flex items-center gap-8">
+                <span style={{ width: 10, height: 10, borderRadius: 3, background: '#9b87f5' }} />
+                <span className="muted-text">Personal note</span>
               </div>
               <div className="flex items-center gap-8">
                 <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--green)' }} />
