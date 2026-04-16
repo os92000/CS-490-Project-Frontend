@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { workoutsAPI } from '../services/api';
 import FitChart, { barDataset, lineDataset } from '../components/FitChart';
 import { buildBucketSeries } from '../utils/chartSeries';
+import { useAuth } from '../context/AuthContext';
+import Avatar from '../components/Avatar';
+import { useNavigate } from 'react-router-dom';
 
 const PAGE_SIZE = 10;
 
@@ -18,21 +21,31 @@ const PaginationControls = ({ page, totalPages, onPrev, onNext }) => {
 };
 
 const MyWorkouts = () => {
+  const { user, hasRole } = useAuth();
+  const navigate = useNavigate();
+  const isCoach = hasRole(['coach', 'both']);
+  const isClient = hasRole(['client', 'both']);
   const [plans, setPlans] = useState([]);
   const [logs, setLogs] = useState([]);
   const [stats, setStats] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [selectedPlanLoading, setSelectedPlanLoading] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('plans');
+  const [activeTab, setActiveTab] = useState(isCoach && !isClient ? 'my-plans' : 'plans');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [logForm, setLogForm] = useState({ plan_id:'', date: new Date().toISOString().split('T')[0], duration_minutes:'', notes:'', rating:3 });
   const [showLogForm, setShowLogForm] = useState(false);
   const [logsPage, setLogsPage] = useState(1);
   const selectedPlanRef = useRef(null);
+  const [coachPlans, setCoachPlans] = useState([]);
+  const [coachPlansLoading, setCoachPlansLoading] = useState(false);
+  const [planClients, setPlanClients] = useState({});
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+    if (isCoach && !isClient) loadCoachPlans();
+  }, []);
 
   const loadData = async () => {
     try {
@@ -47,6 +60,27 @@ const MyWorkouts = () => {
       if (sr?.data?.success) setStats(sr.data.data);
     } catch { setError('Failed to load workout data.'); }
     finally { setLoading(false); }
+  };
+
+  const loadCoachPlans = async () => {
+    try {
+      setCoachPlansLoading(true);
+      const res = await workoutsAPI.getWorkoutPlans({ role: 'coach' });
+      if (res?.data?.success) {
+        setCoachPlans(res.data.data.plans || []);
+      }
+    } catch { setError('Failed to load coach plans.'); }
+    finally { setCoachPlansLoading(false); }
+  };
+
+  const loadPlanClients = async (planId) => {
+    if (planClients[planId]) return;
+    try {
+      const res = await workoutsAPI.getPlanClients(planId);
+      if (res?.data?.success) {
+        setPlanClients(prev => ({ ...prev, [planId]: res.data.data.clients || [] }));
+      }
+    } catch { console.error('Failed to load plan clients'); }
   };
 
   const logWorkout = async e => {
@@ -122,18 +156,18 @@ const MyWorkouts = () => {
         <div className="flex justify-between items-center flex-wrap gap-16">
           <div className="hero-copy">
             <p className="eyebrow">Training</p>
-            <h1>My Workouts</h1>
-            <p className="page-copy">Manage workout plans and log your training sessions.</p>
+            <h1>{isCoach && !isClient ? 'My Plans' : 'My Workouts'}</h1>
+            <p className="page-copy">{isCoach && !isClient ? 'View and manage workout plans for your clients.' : 'Manage workout plans and log your training sessions.'}</p>
           </div>
-          <button className="btn btn-primary" onClick={() => setShowLogForm(!showLogForm)}>+ Log workout</button>
+          {isClient && <button className="btn btn-primary" onClick={() => setShowLogForm(!showLogForm)}>+ Log workout</button>}
         </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
       {success && <div className="success-message">{success}</div>}
 
-      {/* STATS */}
-      {stats && (
+      {/* CLIENT-ONLY: STATS */}
+      {isClient && stats && (
         <div className="stats-grid fade-up fade-up-1">
           {[
             { label: 'Total sessions', value: stats.total_workouts || 0 },
@@ -149,8 +183,8 @@ const MyWorkouts = () => {
         </div>
       )}
 
-      {/* LOG FORM */}
-      {showLogForm && (
+      {/* CLIENT-ONLY: LOG FORM */}
+      {isClient && showLogForm && (
         <div className="card fade-up" style={{ borderColor: 'rgba(63,185,80,0.3)', background: 'rgba(63,185,80,0.04)' }}>
           <h2 style={{ marginBottom: 18 }}>Log a workout session</h2>
           <form onSubmit={logWorkout} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -191,8 +225,8 @@ const MyWorkouts = () => {
         </div>
       )}
 
-      {/* CHARTS */}
-      {stats && (
+      {/* CLIENT-ONLY: CHARTS */}
+      {isClient && stats && (
         <div className="two-col fade-up fade-up-2">
           <div className="card">
             <div className="section-header"><div><h2>Sessions this month</h2><p className="muted-text">Week by week</p></div></div>
@@ -224,13 +258,16 @@ const MyWorkouts = () => {
 
       {/* TABS */}
       <div className="flex gap-6 fade-up fade-up-2">
-        {[['plans','Workout Plans'], ['logs','Session Logs']].map(([v,l]) => (
+        {isClient && [['plans','Workout Plans'], ['logs','Session Logs']].map(([v,l]) => (
           <button key={v} className={`tab-button ${activeTab===v?'active':''}`} onClick={() => setActiveTab(v)}>{l}</button>
         ))}
+        {isCoach && (
+          <button className={`tab-button ${activeTab==='my-plans'?'active':''}`} onClick={() => { setActiveTab('my-plans'); loadCoachPlans(); }}>My Plans</button>
+        )}
       </div>
 
-      {/* PLANS */}
-      {activeTab === 'plans' && (
+      {/* PLANS (Client) */}
+      {isClient && activeTab === 'plans' && (
         plans.length === 0 ? (
           <div className="card fade-up" style={{ textAlign: 'center', padding: '60px 40px' }}>
             <p style={{ fontSize: 40, marginBottom: 12 }}>🏋️</p>
@@ -303,8 +340,8 @@ const MyWorkouts = () => {
         )
       )}
 
-      {/* LOGS */}
-      {activeTab === 'logs' && (
+      {/* LOGS (Client) */}
+      {isClient && activeTab === 'logs' && (
         logs.length === 0 ? (
           <div className="card fade-up" style={{ textAlign: 'center', padding: '60px 40px' }}>
             <p style={{ fontSize: 40, marginBottom: 12 }}>📋</p>
@@ -333,6 +370,109 @@ const MyWorkouts = () => {
               onNext={() => setLogsPage((p) => Math.min(logsTotalPages, p + 1))}
             />
           </div>
+        )
+      )}
+
+      {/* MY PLANS (Coach View) */}
+      {activeTab === 'my-plans' && (
+        coachPlansLoading ? (
+          <div className="loading">Loading your plans…</div>
+        ) : coachPlans.length === 0 ? (
+          <div className="card fade-up" style={{ textAlign: 'center', padding: '60px 40px' }}>
+            <p style={{ fontSize: 40, marginBottom: 12 }}>📝</p>
+            <h3 style={{ marginBottom: 8 }}>No plans created yet</h3>
+            <p className="muted-text" style={{ marginBottom: 24 }}>Create workout plans to assign to your clients.</p>
+            <button className="btn btn-primary" onClick={() => navigate('/create-workout-plan')}>+ Create a plan</button>
+          </div>
+        ) : (
+          <>
+            <div className="flex justify-between items-center" style={{ marginTop: 6, marginBottom: 10 }}>
+              <p className="muted-text">Plans you've created for your clients.</p>
+              <button className="btn btn-primary btn-sm" onClick={() => navigate('/create-workout-plan')}>+ Create plan</button>
+            </div>
+            <div className="coach-grid fade-up">
+              {coachPlans.map(plan => {
+                const isSelected = selectedPlan?.id === plan.id;
+                const clients = planClients[plan.id];
+                const clientName = plan.client?.profile?.first_name
+                  ? `${plan.client.profile.first_name} ${plan.client.profile.last_name || ''}`.trim()
+                  : plan.client?.email || 'Unknown client';
+                const clientInitials = (plan.client?.profile?.first_name?.[0] || plan.client?.email?.[0] || '?').toUpperCase();
+
+                return (
+                  <button
+                    key={plan.id}
+                    type="button"
+                    className="card"
+                    onClick={() => { selectPlan(plan); loadPlanClients(plan.id); }}
+                    style={{ borderRadius: 16, border: isSelected ? '1px solid var(--teal)' : '1px solid var(--border)', transition: 'all 0.15s', cursor: 'pointer', textAlign: 'left', width: '100%', background: isSelected ? 'rgba(95,215,228,0.08)' : undefined, color: 'var(--text)' }}
+                  >
+                    <div className="flex justify-between items-start mb-12">
+                      <h3>{plan.title || plan.name}</h3>
+                      <span className={`badge ${plan.status === 'active' ? 'badge-green' : plan.status === 'completed' ? 'badge-muted' : 'badge-amber'}`}>{plan.status || 'unrated'}</span>
+                    </div>
+                    {plan.description && <p className="muted-text" style={{ fontSize: 13, marginBottom: 12, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{plan.description}</p>}
+                    <div className="flex flex-wrap gap-6">
+                      <div className="flex items-center gap-6">
+                        <Avatar name={clientName} size={22} />
+                        <span className="muted-text" style={{ fontSize: 12 }}>{clientName}</span>
+                      </div>
+                      {plan.goal && <span className="badge badge-green">{plan.goal}</span>}
+                      {plan.duration_weeks && <span className="badge badge-muted">{plan.duration_weeks} weeks</span>}
+                      {plan.plan_type && <span className="badge badge-teal">{plan.plan_type}</span>}
+                      {plan.difficulty && <span className={`badge ${diffColor[plan.difficulty] || 'badge-muted'}`}>{plan.difficulty}</span>}
+                    </div>
+                    {clients && clients.length > 0 && (
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                        <p className="muted-text" style={{ fontSize: 11, marginBottom: 8 }}>Clients on this plan:</p>
+                        {clients.map(c => (
+                          <div key={c.id} className="flex items-center gap-8" style={{ marginBottom: 6 }}>
+                            <Avatar name={`${c.profile?.first_name || c.email || '?'}`} size={20} />
+                            <span style={{ fontSize: 13 }}>{c.profile?.first_name ? `${c.profile.first_name} ${c.profile.last_name || ''}`.trim() : c.email}</span>
+                            <span className={`badge ${c.plan_status === 'active' ? 'badge-green' : c.plan_status === 'completed' ? 'badge-muted' : 'badge-amber'}`} style={{ fontSize: 10 }}>{c.plan_status}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {selectedPlan && selectedPlan.coach_id === user?.id && (
+              <div ref={selectedPlanRef} className="card fade-up" style={{ marginTop: 16 }}>
+                <div className="flex justify-between items-start gap-12" style={{ flexWrap: 'wrap' }}>
+                  <div>
+                    <h3 style={{ marginBottom: 6 }}>{selectedPlan.title || selectedPlan.name}</h3>
+                    {selectedPlan.description && <p className="muted-text" style={{ marginBottom: 8 }}>{selectedPlan.description}</p>}
+                  </div>
+                  {selectedPlanLoading && <span className="muted-text">Loading plan details…</span>}
+                </div>
+
+                {selectedPlan.days && selectedPlan.days.length > 0 ? (
+                  <div style={{ marginTop: 12 }}>
+                    {selectedPlan.days.map((day, dayIndex) => (
+                      <div key={day.id || dayIndex} style={{ borderTop: dayIndex === 0 ? 'none' : '1px solid var(--border)', paddingTop: dayIndex === 0 ? 0 : 10, marginTop: dayIndex === 0 ? 0 : 10 }}>
+                        <strong>{day.name || `Day ${day.day_number || dayIndex + 1}`}</strong>
+                        {day.notes && <p className="muted-text" style={{ fontSize: 13, marginTop: 2 }}>{day.notes}</p>}
+                        {day.exercises && day.exercises.length > 0 && (
+                          <div className="flex flex-wrap gap-6" style={{ marginTop: 8 }}>
+                            {day.exercises.map((ex, exIndex) => (
+                              <span key={ex.id || exIndex} className="badge badge-muted">
+                                {ex.exercise?.name || 'Exercise'}{ex.sets ? ` • ${ex.sets} sets` : ''}{ex.reps ? ` • ${ex.reps} reps` : ''}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="muted-text" style={{ marginTop: 8 }}>No day-by-day details found for this plan.</p>
+                )}
+              </div>
+            )}
+          </>
         )
       )}
     </div>

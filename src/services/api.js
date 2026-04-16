@@ -144,6 +144,7 @@ export const workoutsAPI = {
   // Workout Plans
   getWorkoutPlans: (params) => api.get('/workouts/plans', { params }),
   getWorkoutPlan: (planId) => api.get(`/workouts/plans/${planId}`),
+  getPlanClients: (planId) => api.get(`/workouts/plans/${planId}/clients`),
   createWorkoutPlan: (data) => api.post('/workouts/plans', data),
   updateWorkoutPlan: (planId, data) => api.put(`/workouts/plans/${planId}`, data),
   deleteWorkoutPlan: (planId) => api.delete(`/workouts/plans/${planId}`),

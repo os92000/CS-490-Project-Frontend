@@ -270,7 +270,7 @@ const Dashboard = () => {
           <div className="feature-grid">
             {[
               { lbl:'Roster',      title:'My Clients',      desc:'View and manage your client relationships',   to:'/my-clients'     },
-              { lbl:'Programming', title:'Create Workouts',  desc:'Design workout plans for your clients',       to:'/create-workout-plan' },
+              { lbl:'Programming', title:'My Plans',         desc:'View and manage workout plans for your clients', to:'/my-workouts' },
               { lbl:'Profile',     title:'Coach Settings',   desc:'Update bio, rates, and specializations',      to:'/coach-settings' },
               { lbl:'Comms',       title:'Messages',         desc:'Real-time chat with your clients',            to:'/chat'           },
             ].map(f => (
