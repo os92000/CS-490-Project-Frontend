@@ -27,7 +27,7 @@ const Analytics = () => {
 
       const [wkRes, nuRes, prRes, weRes, wlRes] = await Promise.all([
         analyticsAPI.getWorkoutSummary({ days: period }),
-        analyticsAPI.getNutritionSummary({ days: Math.min(period, 30) }),
+        analyticsAPI.getNutritionSummary({ days: period }),
         analyticsAPI.getProgress({ days: period }),
         nutritionAPI.getWellness(),
         workoutsAPI.getWorkoutLogs({

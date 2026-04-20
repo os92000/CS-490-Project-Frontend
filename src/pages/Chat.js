@@ -15,6 +15,7 @@ const Chat = () => {
   const messagesEndRef = useRef(null);
   const messagesListRef = useRef(null);
   const shouldAutoScrollRef = useRef(true);
+  const activeConversationIdRef = useRef(null);
 
   const isNearBottom = (el, threshold = 80) => (
     el.scrollHeight - el.scrollTop - el.clientHeight <= threshold
@@ -25,13 +26,68 @@ const Chat = () => {
     messagesEndRef.current.scrollIntoView({ behavior, block: 'end' });
   };
 
+  const appendMessageIfMissing = (message) => {
+    setMessages(prev => (
+      prev.some(existing => existing.id === message.id) ? prev : [...prev, message]
+    ));
+  };
+
+  const updateConversationPreview = (message, isActiveConversation) => {
+    setConversations(prev => {
+      const idx = prev.findIndex(conv => conv.relationship_id === message.relationship_id);
+      if (idx === -1) return prev;
+
+      const current = prev[idx];
+      const unreadCount = isActiveConversation || message.sender_id === user.id
+        ? 0
+        : (current.unread_count || 0) + 1;
+
+      const updated = {
+        ...current,
+        last_message: message,
+        unread_count: unreadCount,
+      };
+
+      // Bubble the updated conversation to the top like a typical inbox.
+      return [updated, ...prev.slice(0, idx), ...prev.slice(idx + 1)];
+    });
+  };
+
   useEffect(() => {
     loadConversations();
     const sock = io(window.location.origin, { path: '/socket.io' });
     setSocket(sock);
-    sock.on('new_message', msg => setMessages(prev => [...prev, msg]));
-    return () => sock.close();
+
+    const handleNewMessage = (msg) => {
+      const isActiveConversation = activeConversationIdRef.current === msg.relationship_id;
+      updateConversationPreview(msg, isActiveConversation);
+      if (isActiveConversation) {
+        appendMessageIfMissing(msg);
+      }
+    };
+
+    sock.on('new_message', handleNewMessage);
+
+    return () => {
+      sock.off('new_message', handleNewMessage);
+      sock.close();
+    };
   }, []);
+
+  useEffect(() => {
+    activeConversationIdRef.current = selectedConversation?.relationship_id ?? null;
+  }, [selectedConversation?.relationship_id]);
+
+  useEffect(() => {
+    if (!socket || !selectedConversation || !user?.id) return;
+
+    const relationship_id = selectedConversation.relationship_id;
+    socket.emit('join_conversation', { relationship_id, user_id: user.id });
+
+    return () => {
+      socket.emit('leave_conversation', { relationship_id });
+    };
+  }, [socket, selectedConversation?.relationship_id, user?.id]);
 
   useEffect(() => {
     const el = messagesListRef.current;
@@ -62,14 +118,25 @@ const Chat = () => {
       const r = await chatAPI.getMessages(conv.relationship_id);
       if (r.data.success) setMessages(r.data.data.messages);
     } catch {}
-    if (socket) socket.emit('join_conversation', { relationship_id: conv.relationship_id, user_id: user.id });
+
+    setConversations(prev => prev.map(item => (
+      item.relationship_id === conv.relationship_id
+        ? { ...item, unread_count: 0 }
+        : item
+    )));
   };
 
   const sendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedConversation) return;
     try {
-      await chatAPI.sendMessage({ relationship_id: selectedConversation.relationship_id, message: newMessage.trim() });
+      const response = await chatAPI.sendMessage({ relationship_id: selectedConversation.relationship_id, message: newMessage.trim() });
+      if (response.data.success) {
+        const sentMessage = response.data.data;
+        appendMessageIfMissing(sentMessage);
+        updateConversationPreview(sentMessage, true);
+        shouldAutoScrollRef.current = true;
+      }
       setNewMessage('');
     } catch {}
   };
