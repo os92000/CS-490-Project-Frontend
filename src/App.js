@@ -23,6 +23,7 @@ import CoachSettings from './pages/CoachSettings';
 import AdminDashboard from './pages/AdminDashboard';
 import ClientProgress from './pages/ClientProgress';
 import TopCoachesPage from './pages/TopCoachesPage';
+import BrowseExercises from './pages/BrowseExercises';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireAuth = true, redirectTo = '/login' }) => {
@@ -219,6 +220,14 @@ function App() {
           element={
             <ProtectedRoute>
               <ClientProgress />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/browse-exercises"
+          element={
+            <ProtectedRoute>
+              <BrowseExercises />
             </ProtectedRoute>
           }
         />
