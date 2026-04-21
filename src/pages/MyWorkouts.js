@@ -61,7 +61,7 @@ const MyWorkouts = () => {
     } catch { setError('Failed to load workout data.'); }
     finally { setLoading(false); }
   };
-
+ 
   const loadCoachPlans = async () => {
     try {
       setCoachPlansLoading(true);
@@ -157,15 +157,31 @@ const MyWorkouts = () => {
           <div className="hero-copy">
             <p className="eyebrow">Training</p>
             <h1>{isCoach && !isClient ? 'My Plans' : 'My Workouts'}</h1>
-            <p className="page-copy">{isCoach && !isClient ? 'View and manage workout plans for your clients.' : 'Manage workout plans and log your training sessions.'}</p>
+            <p className="page-copy">
+              {isCoach && !isClient
+                ? 'View and manage workout plans for your clients.'
+                : 'Manage workout plans and log your training sessions.'}
+            </p>
           </div>
-          {isClient && <button className="btn btn-primary" onClick={() => setShowLogForm(!showLogForm)}>+ Log workout</button>}
+          <div className="flex gap-10 flex-wrap">
+            <button
+              className="btn btn-primary"
+              onClick={() => navigate('/browse-exercises')}
+            >
+              Browse Exercises
+            </button>
+            {isClient && (
+              <button className="btn btn-primary" onClick={() => setShowLogForm(!showLogForm)}>
+                + Log workout
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
       {success && <div className="success-message">{success}</div>}
-
+      
       {/* CLIENT-ONLY: STATS */}
       {isClient && stats && (
         <div className="stats-grid fade-up fade-up-1">
@@ -397,7 +413,6 @@ const MyWorkouts = () => {
                 const clientName = plan.client?.profile?.first_name
                   ? `${plan.client.profile.first_name} ${plan.client.profile.last_name || ''}`.trim()
                   : plan.client?.email || 'Unknown client';
-                const clientInitials = (plan.client?.profile?.first_name?.[0] || plan.client?.email?.[0] || '?').toUpperCase();
 
                 return (
                   <button
