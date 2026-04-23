@@ -21,7 +21,10 @@ const RoleSelection = () => {
     setIsLoading(true); setError('');
     try {
       const res = await usersAPI.updateRole(user.id, selectedRole);
-      if (res.data.success) { updateUser(res.data.data); navigate('/fitness-survey'); }
+      if (res.data.success) {
+        updateUser(res.data.data);
+        navigate(selectedRole === 'coach' ? '/coach-onboarding' : '/fitness-survey');
+      }
       else setError(res.data.message || 'Failed to update role');
     } catch (err) { setError(err.response?.data?.message || 'An error occurred'); }
     finally { setIsLoading(false); }

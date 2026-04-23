@@ -20,6 +20,7 @@ import Nutrition from './pages/Nutrition';
 import Analytics from './pages/Analytics';
 import Profile from './pages/Profile';
 import CoachSettings from './pages/CoachSettings';
+import CoachOnboarding from './pages/CoachOnboarding';
 import AdminDashboard from './pages/AdminDashboard';
 import ClientProgress from './pages/ClientProgress';
 import TopCoachesPage from './pages/TopCoachesPage';
@@ -92,6 +93,14 @@ function App() {
           element={
             <ProtectedRoute>
               <FitnessSurvey />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/coach-onboarding"
+          element={
+            <ProtectedRoute>
+              <CoachOnboarding />
             </ProtectedRoute>
           }
         />
