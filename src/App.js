@@ -14,6 +14,7 @@ import MyCoach from './pages/MyCoach';
 import MyClients from './pages/MyClients';
 import Chat from './pages/Chat';
 import MyWorkouts from './pages/MyWorkouts';
+import Calendar from './pages/Calendar';
 import CreateWorkoutPlan from './pages/CreateWorkoutPlan';
 import Nutrition from './pages/Nutrition';
 import Analytics from './pages/Analytics';
@@ -23,6 +24,9 @@ import CoachOnboarding from './pages/CoachOnboarding';
 import AdminDashboard from './pages/AdminDashboard';
 import ClientProgress from './pages/ClientProgress';
 import TopCoachesPage from './pages/TopCoachesPage';
+import BrowseExercises from './pages/BrowseExercises';
+import FilterWorkoutPlan from './pages/FilterWorkoutPlan';
+import CustomizeWorkoutPlan from './pages/CustomizeWorkoutPlan';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireAuth = true, redirectTo = '/login' }) => {
@@ -175,6 +179,14 @@ function App() {
           }
         />
         <Route
+          path="/calendar"
+          element={
+            <ProtectedRoute>
+              <Calendar />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/nutrition"
           element={
             <ProtectedRoute>
@@ -219,6 +231,30 @@ function App() {
           element={
             <ProtectedRoute>
               <ClientProgress />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/browse-exercises"
+          element={
+            <ProtectedRoute>
+              <BrowseExercises />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/filter-workout-plans"
+          element={
+            <ProtectedRoute> 
+              <FilterWorkoutPlan />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/customize-workout-plan/:planId"
+          element={
+            <ProtectedRoute>
+              <CustomizeWorkoutPlan />
             </ProtectedRoute>
           }
         />

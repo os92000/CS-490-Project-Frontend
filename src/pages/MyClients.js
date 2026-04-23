@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { coachesAPI } from '../services/api';
 import Avatar from '../components/Avatar';
+import ChatPanel from '../components/ChatPanel';
 
 const MyClients = () => {
   const [clients, setClients] = useState([]);
@@ -9,7 +10,9 @@ const MyClients = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [activeTab, setActiveTab] = useState('clients');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(location.state?.tab || 'clients');
+  const [chatClientId, setChatClientId] = useState(location.state?.clientId || null);
   const navigate = useNavigate();
 
   useEffect(() => { loadData(); }, []);
@@ -52,7 +55,7 @@ const MyClients = () => {
       {success && <div className="success-message">{success}</div>}
 
       <div className="flex gap-6 fade-up fade-up-1">
-        {[['clients', `Clients (${clients.length})`], ['requests', `Requests (${requests.length})`]].map(([v, label]) => (
+        {[['clients', `Clients (${clients.length})`], ['requests', `Requests (${requests.length})`], ['messages', 'Messages']].map(([v, label]) => (
           <button key={v} className={`tab-button ${activeTab === v ? 'active' : ''}`} onClick={() => setActiveTab(v)}>{label}</button>
         ))}
       </div>
@@ -69,15 +72,15 @@ const MyClients = () => {
             ) : (
               <div className="coach-grid fade-up">
                 {clients.map(client => (
-                  <div key={client.id} className="card card-hover" style={{ borderRadius: 16 }}>
-                    <div className="flex items-center gap-14 mb-14">
+                  <div key={client.id} className="card card-hover" style={{ borderRadius: 16, padding: 24 }}>
+                    <div className="flex items-center gap-20 mb-16">
                       <Avatar src={client.profile?.profile_picture} name={fullName(client.profile, client.email)} size={56} />
                       <div>
                         <h3 style={{ marginBottom: 3 }}>{fullName(client.profile, client.email)}</h3>
                         <p className="muted-text" style={{ fontSize: 12 }}>{client.email}</p>
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-6 mb-14">
+                    <div className="flex flex-wrap gap-6 mb-16">
                       {client.profile?.phone && <span className="badge badge-muted">{client.profile.phone}</span>}
                       {client.start_date && <span className="badge badge-green">Since {new Date(client.start_date).toLocaleDateString()}</span>}
                     </div>
@@ -86,6 +89,12 @@ const MyClients = () => {
                 ))}
               </div>
             )
+          )}
+
+          {activeTab === 'messages' && (
+            <div className="fade-up">
+              <ChatPanel initialClientId={chatClientId} />
+            </div>
           )}
 
           {activeTab === 'requests' && (

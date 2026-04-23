@@ -17,6 +17,7 @@ const MyCoach = () => {
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState('');
+  const [removing, setRemoving] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -36,6 +37,16 @@ const MyCoach = () => {
     })();
   }, []);
 
+  const removeCoach = async () => {
+    if (!window.confirm('Are you sure you want to remove your coach? This cannot be undone.')) return;
+    setRemoving(true); setError(''); setSuccess('');
+    try {
+      const res = await coachesAPI.removeMyCoach();
+      if (res.data.success) { setCoach(null); setSuccess('Coach removed successfully.'); }
+    } catch (err) { setError(err.response?.data?.message || 'Failed to remove coach.'); }
+    finally { setRemoving(false); }
+  };
+
   const submitReview = async (e) => {
     e.preventDefault();
     setSubmitting(true); setError(''); setSuccess('');
@@ -48,8 +59,10 @@ const MyCoach = () => {
 
   if (loading) return <div className="loading">Loading your coach…</div>;
 
-  if (error && !coach) return (
+  if (!coach && !loading) return (
     <div className="container page-shell">
+      {success && <div className="success-message">{success}</div>}
+      {error && <div className="error-message">{error}</div>}
       <div className="card fade-up" style={{ textAlign: 'center', padding: '60px 40px' }}>
         <p style={{ fontSize: 48, marginBottom: 16 }}>🔍</p>
         <h2 style={{ marginBottom: 8 }}>No active coach</h2>
@@ -85,6 +98,9 @@ const MyCoach = () => {
               <button className="btn btn-primary" onClick={() => navigate('/chat')}>Message coach</button>
               <button className="btn btn-secondary" onClick={() => setShowReviewForm(!showReviewForm)}>
                 {showReviewForm ? 'Cancel review' : 'Leave a review'}
+              </button>
+              <button className="btn btn-danger btn-sm" onClick={removeCoach} disabled={removing}>
+                {removing ? 'Removing…' : 'Remove coach'}
               </button>
             </div>
           </div>
