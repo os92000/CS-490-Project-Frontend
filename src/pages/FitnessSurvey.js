@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { surveysAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const levels = [
   { v: 'beginner', label: 'Beginner', desc: 'Just starting out', icon: '🌱' },
@@ -13,6 +14,7 @@ const FitnessSurvey = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setError(''); };
 
@@ -22,7 +24,9 @@ const FitnessSurvey = () => {
     setIsLoading(true);
     try {
       const res = await surveysAPI.createFitnessSurvey(form);
-      if (res.data.success) navigate('/dashboard');
+      if (res.data.success) {
+        navigate(user?.role === 'both' ? '/coach-onboarding' : '/dashboard');
+      }
       else setError(res.data.message || 'Failed to submit survey');
     } catch (err) { setError(err.response?.data?.message || 'An error occurred'); }
     finally { setIsLoading(false); }
