@@ -299,19 +299,6 @@ const LandingPage = () => {
                         </p>
                       </div>
                     )}
-                    <Link
-                      to="/signup"
-                      className="btn btn-primary"
-                      style={{
-                        textDecoration: 'none',
-                        textAlign: 'center',
-                        marginTop: 'auto',
-                        padding: '8px 12px',
-                        fontSize: 14,
-                      }}
-                    >
-                      Sign up to connect
-                    </Link>
                   </div>
                 );
               })}
