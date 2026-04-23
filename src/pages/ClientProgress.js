@@ -12,6 +12,7 @@ const ClientProgress = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [removing, setRemoving] = useState(false);
 
   useEffect(() => {
     coachesAPI.getClientProgress(clientId)
@@ -20,8 +21,22 @@ const ClientProgress = () => {
       .finally(() => setLoading(false));
   }, [clientId]);
 
+  const removeClient = async () => {
+    if (!window.confirm('Remove this client? This cannot be undone.')) return;
+    setRemoving(true);
+    try {
+      await coachesAPI.removeClient(clientId);
+      navigate('/my-clients');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to remove client.');
+      setRemoving(false);
+    }
+  };
+
+  const openChat = () => navigate('/my-clients', { state: { tab: 'messages', clientId: parseInt(clientId) } });
+
   if (loading) return <div className="loading">Loading client progress…</div>;
-  if (error) return <div className="container page-shell"><div className="error-message">{error}</div><button className="btn btn-secondary mt-16" onClick={() => navigate('/my-clients')}>← Back to clients</button></div>;
+  if (!data) return <div className="container page-shell"><div className="error-message">{error}</div><button className="btn btn-secondary mt-16" onClick={() => navigate('/my-clients')}>← Back to clients</button></div>;
 
   const client = data.client;
   const name = client?.profile?.first_name ? `${client.profile.first_name} ${client.profile.last_name||''}`.trim() : client?.email || 'Client';
@@ -31,14 +46,22 @@ const ClientProgress = () => {
     <div className="container page-shell">
       <button className="btn btn-ghost btn-sm" onClick={() => navigate('/my-clients')} style={{ alignSelf: 'flex-start' }}>← Back to clients</button>
 
+      {error && <div className="error-message">{error}</div>}
+
       {/* HERO */}
       <div className="page-hero fade-up">
         <div className="flex items-center gap-20" style={{ flexWrap: 'wrap' }}>
           <Avatar src={client?.profile?.profile_picture} name={name} size={72} style={{ border: '3px solid rgba(88,166,255,0.3)' }} />
-          <div className="hero-copy">
+          <div className="hero-copy" style={{ flex: 1 }}>
             <p className="eyebrow">Client progress</p>
             <h1>{name}</h1>
             <p className="page-copy">{client?.email} · {data.survey?.fitness_level || 'No fitness level set'}</p>
+            <div className="flex gap-10" style={{ marginTop: 14 }}>
+              <button className="btn btn-primary btn-sm" onClick={openChat}>Message client</button>
+              <button className="btn btn-danger btn-sm" onClick={removeClient} disabled={removing}>
+                {removing ? 'Removing…' : 'Remove client'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -129,6 +152,49 @@ const ClientProgress = () => {
           )}
         </div>
       )}
+
+      {/* WORKOUT PLANS */}
+      <div className="card fade-up fade-up-3">
+        <div className="section-header"><div><h2>Active workout plans</h2><p className="muted-text">{data.workout_plans?.length || 0} plans</p></div></div>
+        {!data.workout_plans?.length ? (
+          <p className="muted-text">No active plans assigned.</p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+            {data.workout_plans.map(plan => (
+              <div key={plan.id} style={{ padding: 16, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)' }}>
+                <div className="flex justify-between items-start mb-8">
+                  <strong style={{ fontSize: 15 }}>{plan.name}</strong>
+                  <span className="badge badge-green" style={{ fontSize: 10 }}>{plan.status}</span>
+                </div>
+                {plan.description && <p className="muted-text" style={{ fontSize: 12, marginBottom: 10, lineHeight: 1.4 }}>{plan.description}</p>}
+                <div className="flex flex-wrap gap-6">
+                  {plan.start_date && <span className="badge badge-muted" style={{ fontSize: 10 }}>{plan.start_date}</span>}
+                  {plan.end_date && <span className="badge badge-muted" style={{ fontSize: 10 }}>{plan.end_date}</span>}
+                  {plan.workout_days?.length > 0 && <span className="badge badge-teal" style={{ fontSize: 10 }}>{plan.workout_days.length} days</span>}
+                </div>
+                {plan.workout_days?.length > 0 && (
+                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                    {plan.workout_days.slice(0, 3).map((day, i) => (
+                      <div key={day.id || i} style={{ fontSize: 12, marginBottom: 4 }}>
+                        <strong style={{ color: 'var(--text-2)' }}>{day.name || `Day ${day.day_number || i + 1}`}</strong>
+                        {day.plan_exercises?.length > 0 && (
+                          <span className="muted-text" style={{ marginLeft: 6 }}>
+                            {day.plan_exercises.slice(0, 2).map(pe => pe.exercise?.name).filter(Boolean).join(', ')}
+                            {day.plan_exercises.length > 2 && ` +${day.plan_exercises.length - 2}`}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                    {plan.workout_days.length > 3 && (
+                      <p className="muted-text" style={{ fontSize: 11, marginTop: 4 }}>+{plan.workout_days.length - 3} more days</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* WORKOUT LOGS */}
       <div className="card fade-up fade-up-3">
