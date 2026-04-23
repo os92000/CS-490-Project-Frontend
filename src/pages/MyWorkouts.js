@@ -257,6 +257,14 @@ const MyWorkouts = () => {
   </button>
 
   <button
+  className="btn btn-primary"
+  disabled={!selectedPlan}
+  onClick={() => selectedPlan && navigate(`/customize-workout-plan/${selectedPlan.id}`)}
+>
+  Customize Plan
+</button>
+
+  <button
     className="btn btn-primary"
     onClick={() => navigate('/filter-workout-plans')}
   >
