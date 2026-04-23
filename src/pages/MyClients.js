@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { coachesAPI } from '../services/api';
 import Avatar from '../components/Avatar';
+import ChatPanel from '../components/ChatPanel';
 
 const MyClients = () => {
   const [clients, setClients] = useState([]);
@@ -9,7 +10,9 @@ const MyClients = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [activeTab, setActiveTab] = useState('clients');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(location.state?.tab || 'clients');
+  const [chatClientId, setChatClientId] = useState(location.state?.clientId || null);
   const navigate = useNavigate();
 
   useEffect(() => { loadData(); }, []);
@@ -52,7 +55,7 @@ const MyClients = () => {
       {success && <div className="success-message">{success}</div>}
 
       <div className="flex gap-6 fade-up fade-up-1">
-        {[['clients', `Clients (${clients.length})`], ['requests', `Requests (${requests.length})`]].map(([v, label]) => (
+        {[['clients', `Clients (${clients.length})`], ['requests', `Requests (${requests.length})`], ['messages', 'Messages']].map(([v, label]) => (
           <button key={v} className={`tab-button ${activeTab === v ? 'active' : ''}`} onClick={() => setActiveTab(v)}>{label}</button>
         ))}
       </div>
@@ -86,6 +89,12 @@ const MyClients = () => {
                 ))}
               </div>
             )
+          )}
+
+          {activeTab === 'messages' && (
+            <div className="fade-up">
+              <ChatPanel initialClientId={chatClientId} />
+            </div>
           )}
 
           {activeTab === 'requests' && (

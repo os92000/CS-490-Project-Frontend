@@ -8,6 +8,76 @@ import { useNavigate } from 'react-router-dom';
 
 const PAGE_SIZE = 10;
 
+const ExerciseSearchRow = ({ ex, index, onUpdate, onRemove, showRemove }) => {
+  const [results, setResults] = useState([]);
+  const [open, setOpen] = useState(false);
+  const debounceRef = useRef(null);
+
+  const handleNameChange = (val) => {
+    onUpdate(index, 'name', val);
+    clearTimeout(debounceRef.current);
+    if (val.trim().length < 2) { setResults([]); setOpen(false); return; }
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await workoutsAPI.getExercises({ search: val });
+        if (res?.data?.success) { setResults(res.data.data.exercises || []); setOpen(true); }
+      } catch { setResults([]); }
+    }, 300);
+  };
+
+  const selectExercise = (exercise) => {
+    onUpdate(index, 'name', exercise.name);
+    if (exercise.default_duration_minutes) onUpdate(index, 'duration_minutes', String(exercise.default_duration_minutes));
+    setOpen(false);
+    setResults([]);
+  };
+
+  return (
+    <div className="flex gap-8 items-center" style={{ flexWrap: 'nowrap' }}>
+      <div style={{ flex: 2, minWidth: 0, position: 'relative' }}>
+        <input
+          type="text"
+          placeholder="Search or type exercise name"
+          value={ex.name}
+          onChange={e => handleNameChange(e.target.value)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          style={{ width: '100%' }}
+        />
+        {open && results.length > 0 && (
+          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, zIndex: 200, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+            {results.map(r => (
+              <div
+                key={r.id}
+                onMouseDown={() => selectExercise(r)}
+                style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+              >
+                <div style={{ fontSize: 13, fontWeight: 500 }}>{r.name}</div>
+                {(r.muscle_group || r.difficulty || r.default_duration_minutes) && (
+                  <div className="muted-text" style={{ fontSize: 11 }}>
+                    {[r.muscle_group, r.difficulty, r.default_duration_minutes ? `${r.default_duration_minutes} min` : null].filter(Boolean).join(' · ')}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <input
+        type="number"
+        placeholder="Min"
+        value={ex.duration_minutes}
+        min="1"
+        onChange={e => onUpdate(index, 'duration_minutes', e.target.value)}
+        style={{ flex: '0 0 72px', minWidth: 0 }}
+      />
+      <span className="muted-text" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>min</span>
+      {showRemove && (
+        <button type="button" onClick={() => onRemove(index)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: '0 4px', lineHeight: 1 }} aria-label="Remove">✕</button>
+      )}
+    </div>
+  );
+};
+
 const PaginationControls = ({ page, totalPages, onPrev, onNext }) => {
   if (totalPages <= 1) return null;
 
@@ -34,7 +104,8 @@ const MyWorkouts = () => {
   const [activeTab, setActiveTab] = useState(isCoach && !isClient ? 'my-plans' : 'plans');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [logForm, setLogForm] = useState({ plan_id:'', date: new Date().toISOString().split('T')[0], duration_minutes:'', notes:'', rating:3 });
+  const emptyExercise = () => ({ name: '', duration_minutes: '' });
+  const [logForm, setLogForm] = useState({ plan_id:'', date: new Date().toISOString().split('T')[0], notes:'', rating:3, exercises:[{ name:'', duration_minutes:'' }] });
   const [showLogForm, setShowLogForm] = useState(false);
   const [logsPage, setLogsPage] = useState(1);
   const selectedPlanRef = useRef(null);
@@ -61,7 +132,7 @@ const MyWorkouts = () => {
     } catch { setError('Failed to load workout data.'); }
     finally { setLoading(false); }
   };
-
+ 
   const loadCoachPlans = async () => {
     try {
       setCoachPlansLoading(true);
@@ -83,12 +154,26 @@ const MyWorkouts = () => {
     } catch { console.error('Failed to load plan clients'); }
   };
 
+  const addExercise = () => setLogForm(f => ({ ...f, exercises: [...f.exercises, emptyExercise()] }));
+  const removeExercise = i => setLogForm(f => ({ ...f, exercises: f.exercises.filter((_, idx) => idx !== i) }));
+  const updateExercise = (i, field, val) => setLogForm(f => ({ ...f, exercises: f.exercises.map((ex, idx) => idx === i ? { ...ex, [field]: val } : ex) }));
+
   const logWorkout = async e => {
     e.preventDefault(); setError(''); setSuccess('');
+    const validExercises = logForm.exercises.filter(ex => ex.name.trim() && ex.duration_minutes);
+    if (validExercises.length === 0) {
+      setError('Add at least one exercise with a name and duration.');
+      return;
+    }
+    const totalDuration = validExercises.reduce((sum, ex) => sum + (parseInt(ex.duration_minutes) || 0), 0);
+    const exerciseSummary = validExercises.map(ex => `${ex.name.trim()}: ${ex.duration_minutes} min`).join(', ');
+    const notes = logForm.notes.trim()
+      ? `${logForm.notes.trim()}\n\nExercises: ${exerciseSummary}`
+      : `Exercises: ${exerciseSummary}`;
     try {
-      await workoutsAPI.createWorkoutLog(logForm);
+      await workoutsAPI.createWorkoutLog({ plan_id: logForm.plan_id, date: logForm.date, duration_minutes: totalDuration, notes, rating: logForm.rating });
       setSuccess('Workout logged!'); setShowLogForm(false);
-      setLogForm({ plan_id:'', date: new Date().toISOString().split('T')[0], duration_minutes:'', notes:'', rating:3 });
+      setLogForm({ plan_id:'', date: new Date().toISOString().split('T')[0], notes:'', rating:3, exercises:[{ name:'', duration_minutes:'' }] });
       loadData();
     } catch(err) { setError(err.response?.data?.message || 'Failed to log workout.'); }
   };
@@ -157,15 +242,31 @@ const MyWorkouts = () => {
           <div className="hero-copy">
             <p className="eyebrow">Training</p>
             <h1>{isCoach && !isClient ? 'My Plans' : 'My Workouts'}</h1>
-            <p className="page-copy">{isCoach && !isClient ? 'View and manage workout plans for your clients.' : 'Manage workout plans and log your training sessions.'}</p>
+            <p className="page-copy">
+              {isCoach && !isClient
+                ? 'View and manage workout plans for your clients.'
+                : 'Manage workout plans and log your training sessions.'}
+            </p>
           </div>
-          {isClient && <button className="btn btn-primary" onClick={() => setShowLogForm(!showLogForm)}>+ Log workout</button>}
+          <div className="flex gap-10 flex-wrap">
+            <button
+              className="btn btn-primary"
+              onClick={() => navigate('/browse-exercises')}
+            >
+              Browse Exercises
+            </button>
+            {isClient && (
+              <button className="btn btn-primary" onClick={() => setShowLogForm(!showLogForm)}>
+                + Log workout
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
       {success && <div className="success-message">{success}</div>}
-
+      
       {/* CLIENT-ONLY: STATS */}
       {isClient && stats && (
         <div className="stats-grid fade-up fade-up-1">
@@ -200,11 +301,32 @@ const MyWorkouts = () => {
                 <label>Date</label>
                 <input type="date" value={logForm.date} onChange={e => setLogForm(f=>({...f,date:e.target.value}))} />
               </div>
-              <div className="form-group w-full">
-                <label>Duration (minutes)</label>
-                <input type="number" value={logForm.duration_minutes} onChange={e => setLogForm(f=>({...f,duration_minutes:e.target.value}))} placeholder="e.g. 45" min="1" />
-              </div>
             </div>
+
+            <div className="form-group">
+              <div className="flex justify-between items-center" style={{ marginBottom: 8 }}>
+                <label style={{ margin: 0 }}>Exercises <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 12 }}>(at least 1 required)</span></label>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={addExercise}>+ Add exercise</button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {logForm.exercises.map((ex, i) => (
+                  <ExerciseSearchRow
+                    key={i}
+                    ex={ex}
+                    index={i}
+                    onUpdate={updateExercise}
+                    onRemove={removeExercise}
+                    showRemove={logForm.exercises.length > 1}
+                  />
+                ))}
+              </div>
+              {logForm.exercises.filter(ex => ex.duration_minutes).length > 0 && (
+                <p className="muted-text" style={{ fontSize: 12, marginTop: 6 }}>
+                  Total: {logForm.exercises.reduce((s, ex) => s + (parseInt(ex.duration_minutes) || 0), 0)} min
+                </p>
+              )}
+            </div>
+
             <div className="form-group">
               <label>Rating: {logForm.rating}/5</label>
               <div className="flex gap-8 mt-8">
@@ -397,7 +519,6 @@ const MyWorkouts = () => {
                 const clientName = plan.client?.profile?.first_name
                   ? `${plan.client.profile.first_name} ${plan.client.profile.last_name || ''}`.trim()
                   : plan.client?.email || 'Unknown client';
-                const clientInitials = (plan.client?.profile?.first_name?.[0] || plan.client?.email?.[0] || '?').toUpperCase();
 
                 return (
                   <button

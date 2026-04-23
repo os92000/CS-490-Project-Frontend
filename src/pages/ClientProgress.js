@@ -12,6 +12,7 @@ const ClientProgress = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [removing, setRemoving] = useState(false);
 
   useEffect(() => {
     coachesAPI.getClientProgress(clientId)
@@ -20,8 +21,22 @@ const ClientProgress = () => {
       .finally(() => setLoading(false));
   }, [clientId]);
 
+  const removeClient = async () => {
+    if (!window.confirm('Remove this client? This cannot be undone.')) return;
+    setRemoving(true);
+    try {
+      await coachesAPI.removeClient(clientId);
+      navigate('/my-clients');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to remove client.');
+      setRemoving(false);
+    }
+  };
+
+  const openChat = () => navigate('/my-clients', { state: { tab: 'messages', clientId: parseInt(clientId) } });
+
   if (loading) return <div className="loading">Loading client progress…</div>;
-  if (error) return <div className="container page-shell"><div className="error-message">{error}</div><button className="btn btn-secondary mt-16" onClick={() => navigate('/my-clients')}>← Back to clients</button></div>;
+  if (!data) return <div className="container page-shell"><div className="error-message">{error}</div><button className="btn btn-secondary mt-16" onClick={() => navigate('/my-clients')}>← Back to clients</button></div>;
 
   const client = data.client;
   const name = client?.profile?.first_name ? `${client.profile.first_name} ${client.profile.last_name||''}`.trim() : client?.email || 'Client';
@@ -31,14 +46,22 @@ const ClientProgress = () => {
     <div className="container page-shell">
       <button className="btn btn-ghost btn-sm" onClick={() => navigate('/my-clients')} style={{ alignSelf: 'flex-start' }}>← Back to clients</button>
 
+      {error && <div className="error-message">{error}</div>}
+
       {/* HERO */}
       <div className="page-hero fade-up">
         <div className="flex items-center gap-20" style={{ flexWrap: 'wrap' }}>
           <Avatar src={client?.profile?.profile_picture} name={name} size={72} style={{ border: '3px solid rgba(88,166,255,0.3)' }} />
-          <div className="hero-copy">
+          <div className="hero-copy" style={{ flex: 1 }}>
             <p className="eyebrow">Client progress</p>
             <h1>{name}</h1>
             <p className="page-copy">{client?.email} · {data.survey?.fitness_level || 'No fitness level set'}</p>
+            <div className="flex gap-10" style={{ marginTop: 14 }}>
+              <button className="btn btn-primary btn-sm" onClick={openChat}>Message client</button>
+              <button className="btn btn-danger btn-sm" onClick={removeClient} disabled={removing}>
+                {removing ? 'Removing…' : 'Remove client'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
