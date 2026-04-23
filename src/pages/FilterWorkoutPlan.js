@@ -45,7 +45,98 @@ const MOCK_PLANS = [
     duration_weeks: 6,
     plan_type: 'cardio',
     description: 'Improve stamina and cardiovascular performance.'
-  }
+  },
+{
+    id: 5,
+    title: 'Full Body Strength',
+    name: 'Full Body Strength',
+    goal: 'strength',
+    difficulty: 'beginner',
+    duration_weeks: 4,
+    plan_type: 'strength',
+    description: 'A beginner-friendly full body strength training program.'
+},
+{
+    id: 6,
+    title: 'Hybrid Fat Loss',
+    name: 'Hybrid Fat Loss',
+    goal: 'fat loss',
+    difficulty: 'intermediate',
+    duration_weeks: 8,
+    plan_type: 'hybrid',
+    description: 'Combines strength and cardio for effective fat loss.'
+},
+{
+    id: 7,
+    title: 'Powerlifting Strength',
+    name: 'Powerlifting Strength',
+    goal: 'strength',
+    difficulty: 'advanced',
+    duration_weeks: 12,
+    plan_type: 'powerlifting',
+    description: 'Focused on improving your squat, bench, and deadlift.'
+},
+{
+    id: 8,
+    title: 'Cardio Endurance',
+    name: 'Cardio Endurance',
+    goal: 'endurance',
+    difficulty: 'beginner',
+    duration_weeks: 6,
+    plan_type: 'cardio',
+    description: 'A beginner-friendly cardio program to build endurance.'
+},
+{
+    id: 9,
+    title: 'Intermediate Fat Loss',
+    name: 'Intermediate Fat Loss',
+    goal: 'fat loss',
+    difficulty: 'intermediate',
+    duration_weeks: 8,
+    plan_type: 'hybrid',
+    description: 'A balanced approach to fat loss for those with some experience.'
+},
+{
+    id: 10,
+    title: 'Advanced Fat Loss',
+    name: 'Advanced Fat Loss',
+    goal: 'fat loss',
+    difficulty: 'advanced',
+    duration_weeks: 12,
+    plan_type: 'hybrid',
+    description: 'A challenging program for experienced individuals looking to lose fat.'
+},
+{
+    id: 11,
+    title: 'Muscle Builder Beginner',
+    name: 'Muscle Builder Beginner',
+    goal: 'muscle gain',
+    difficulty: 'beginner',
+    duration_weeks: 4,
+    plan_type: 'hybrid',
+    description: 'A beginner-friendly program to build muscle and strength.'
+},
+{
+    id: 12,
+    title: 'Endurance Conditioning Advanced',
+    name: 'Endurance Conditioning Advanced',
+    goal: 'endurance',
+    difficulty: 'advanced',
+    duration_weeks: 12,
+    plan_type: 'cardio',
+    description: 'A challenging program for experienced individuals looking to improve endurance.'
+},
+{
+    id: 13,
+    title: 'Strength Builder Intermediate',
+    name: 'Strength Builder Intermediate',
+    goal: 'strength',
+    difficulty: 'intermediate',
+    duration_weeks: 8,
+    plan_type: 'strength',
+    description: 'An intermediate program focused on building strength and muscle.'
+}
+
 ];
 
 const WorkoutPlanFilters = ({ onSelectPlan }) => {
