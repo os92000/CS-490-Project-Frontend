@@ -249,6 +249,7 @@ const MyWorkouts = () => {
             </p>
           </div>
           <div className="flex gap-10 flex-wrap">
+
   <button
     className="btn btn-primary"
     onClick={() => navigate('/browse-exercises')}
@@ -256,13 +257,17 @@ const MyWorkouts = () => {
     Browse Exercises
   </button>
 
-  <button
-  className="btn btn-primary"
-  disabled={!selectedPlan}
-  onClick={() => selectedPlan && navigate(`/customize-workout-plan/${selectedPlan.id}`)}
->
-  Customize Plan
-</button>
+  {/* ONLY show when a plan is selected */}
+  {selectedPlan && (
+    <button
+      className="btn btn-primary"
+      onClick={() =>
+        navigate(`/customize-workout-plan/${selectedPlan.id}`)
+      }
+    >
+      Customize Plan
+    </button>
+  )}
 
   <button
     className="btn btn-primary"
@@ -272,10 +277,14 @@ const MyWorkouts = () => {
   </button>
 
   {isClient && (
-    <button className="btn btn-primary" onClick={() => setShowLogForm(!showLogForm)}>
+    <button
+      className="btn btn-primary"
+      onClick={() => setShowLogForm(!showLogForm)}
+    >
       + Log workout
     </button>
   )}
+
 </div>
         </div>
       </div>
