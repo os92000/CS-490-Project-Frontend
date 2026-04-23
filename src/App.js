@@ -20,10 +20,13 @@ import Nutrition from './pages/Nutrition';
 import Analytics from './pages/Analytics';
 import Profile from './pages/Profile';
 import CoachSettings from './pages/CoachSettings';
+import CoachOnboarding from './pages/CoachOnboarding';
 import AdminDashboard from './pages/AdminDashboard';
 import ClientProgress from './pages/ClientProgress';
 import TopCoachesPage from './pages/TopCoachesPage';
 import BrowseExercises from './pages/BrowseExercises';
+import FilterWorkoutPlan from './pages/FilterWorkoutPlan';
+import CustomizeWorkoutPlan from './pages/CustomizeWorkoutPlan';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireAuth = true, redirectTo = '/login' }) => {
@@ -90,6 +93,14 @@ function App() {
           element={
             <ProtectedRoute>
               <FitnessSurvey />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/coach-onboarding"
+          element={
+            <ProtectedRoute>
+              <CoachOnboarding />
             </ProtectedRoute>
           }
         />
@@ -228,6 +239,22 @@ function App() {
           element={
             <ProtectedRoute>
               <BrowseExercises />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/filter-workout-plans"
+          element={
+            <ProtectedRoute> 
+              <FilterWorkoutPlan />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/customize-workout-plan/:planId"
+          element={
+            <ProtectedRoute>
+              <CustomizeWorkoutPlan />
             </ProtectedRoute>
           }
         />
