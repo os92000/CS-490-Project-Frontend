@@ -18,11 +18,12 @@ def login_test():
         login_button.click()
         time.sleep(2)
 
-        wait.until(EC.visibility_of_element_located((By.ID, "email"))).send_keys("test@gmail.com")
+        wait.until(EC.visibility_of_element_located((By.ID, "email"))).send_keys("johndoe105@gmail.com")
         driver.find_element(By.ID, "password").send_keys("Password123")
         driver.find_element(By.XPATH, "//button[@type='submit']").click()
 
         wait.until(lambda d: "/dashboard" in d.current_url)
+        time.sleep(3)
 
         assert "/dashboard" in driver.current_url 
         print("Successfully logged in")

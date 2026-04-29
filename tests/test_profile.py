@@ -19,7 +19,7 @@ def profile_test():
         login_button.click()
         time.sleep(2)
 
-        wait.until(EC.visibility_of_element_located((By.ID, "email"))).send_keys("ricardobrown@gmail.com")
+        wait.until(EC.visibility_of_element_located((By.ID, "email"))).send_keys("davidperez@gmail.com")
         driver.find_element(By.ID, "password").send_keys("Password123")
         driver.find_element(By.XPATH, "//button[@type='submit']").click()
 
@@ -37,11 +37,11 @@ def profile_test():
 
         first_name.click()
         first_name.clear()
-        first_name.send_keys("Ricardo")
+        first_name.send_keys("David")
         time.sleep(1)
     
         input_fields[1].clear()
-        input_fields[1].send_keys("Brown")
+        input_fields[1].send_keys("Perez")
         time.sleep(1)
         
         input_fields[2].clear()
@@ -49,7 +49,7 @@ def profile_test():
         
         bio_input = driver.find_element(By.CSS_SELECTOR, 'textarea[placeholder="Tell us a bit about yourself…"]')
         bio_input.clear()
-        bio_input.send_keys("Hi I'm Ricardo!")
+        bio_input.send_keys("Hi I'm David!")
         
         save_profile = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='Save profile']")))
         driver.execute_script("arguments[0].click();", save_profile)

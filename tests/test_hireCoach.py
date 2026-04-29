@@ -18,7 +18,7 @@ def hireCoach():
         login_button.click()
         time.sleep(2)
 
-        wait.until(EC.visibility_of_element_located((By.ID, "email"))).send_keys("johndoe103@gmail.com")
+        wait.until(EC.visibility_of_element_located((By.ID, "email"))).send_keys("johndoe105@gmail.com")
         driver.find_element(By.ID, "password").send_keys("Password123")
         driver.find_element(By.XPATH, "//button[@type='submit']").click()
 

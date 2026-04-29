@@ -18,7 +18,7 @@ def acceptClient():
         login_button.click()
         time.sleep(2)
 
-        wait.until(EC.visibility_of_element_located((By.ID, "email"))).send_keys("ricardobrown@gmail.com")
+        wait.until(EC.visibility_of_element_located((By.ID, "email"))).send_keys("davidperez@gmail.com")
         driver.find_element(By.ID, "password").send_keys("Password123")
         driver.find_element(By.XPATH, "//button[@type='submit']").click()
         wait.until(lambda d: "/dashboard" in d.current_url)

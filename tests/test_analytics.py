@@ -7,6 +7,7 @@ import time
 
 def analytics_test():
     options = Options()
+    options.add_argument("--start-maximized")
     driver = webdriver.Chrome(options=options)
     wait = WebDriverWait(driver, 10)
 

@@ -29,9 +29,9 @@ def signup_test():
         signup_button.click()
         time.sleep(2)
 
-        wait.until(EC.visibility_of_element_located((By.NAME, "first_name"))).send_keys("Ricardo")
-        driver.find_element(By.NAME, "last_name").send_keys("Brown")
-        driver.find_element(By.NAME, "email").send_keys("ricardobrown@gmail.com")
+        wait.until(EC.visibility_of_element_located((By.NAME, "first_name"))).send_keys("David")
+        driver.find_element(By.NAME, "last_name").send_keys("Perez")
+        driver.find_element(By.NAME, "email").send_keys("davidperez@gmail.com")
         driver.find_element(By.NAME, "password").send_keys("Password123")
         driver.find_element(By.NAME, "confirmPassword").send_keys("Password123")
 
