@@ -5,8 +5,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
 
-
-def login_test():
+def analytics_test():
     options = Options()
     driver = webdriver.Chrome(options=options)
     wait = WebDriverWait(driver, 10)
@@ -24,10 +23,26 @@ def login_test():
 
         wait.until(lambda d: "/dashboard" in d.current_url)
 
-        assert "/dashboard" in driver.current_url 
-        print("Successfully logged in")
+        wait.until(EC.element_to_be_clickable((By.LINK_TEXT, "Analytics"))).click()
+        wait.until(EC.url_contains("/analytics"))
+        
+        time.sleep(2)
+        week_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='7d']")))
+        week_button.click()
+        
+        time.sleep(2)
+        ninety_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='90d']")))
+        ninety_button.click()
+        
+        time.sleep(2)
+        year_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='Year']")))
+        year_button.click()
+        time.sleep(2)
+        
+        print("Successfully viewed analytics")
+        
     finally:
         driver.quit()
 
 
-login_test()
+analytics_test()

@@ -3,11 +3,11 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.keys import Keys
 import time
 
-def hireCoach():
+def sendMessage():
     options = Options()
+    options.add_argument("--start-maximized")
     driver = webdriver.Chrome(options=options)
     wait = WebDriverWait(driver, 10)
 
@@ -23,31 +23,31 @@ def hireCoach():
         driver.find_element(By.XPATH, "//button[@type='submit']").click()
 
         wait.until(lambda d: "/dashboard" in d.current_url)
-        wait.until(EC.element_to_be_clickable((By.LINK_TEXT, "Coaches"))).click()
-        wait.until(EC.url_contains("/coaches"))
 
-        
-        coach_cards = wait.until(
-        EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".coach-card"))
-        )
-
-        view_profile_button = coach_cards[-1].find_element(By.TAG_NAME, "button")
+        wait.until(EC.element_to_be_clickable((By.LINK_TEXT, "Chat"))).click() 
+        wait.until(EC.url_contains("/chat"))
         time.sleep(2)
-        driver.execute_script("arguments[0].click();", view_profile_button)
-       
-        hire_button = wait.until(
-            EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Hire this coach')]"))
-        )
-        hire_button.click()
 
-        success_message = wait.until(
-            EC.visibility_of_element_located((By.CLASS_NAME, "success-message"))
-        )
+        coach = driver.find_element(By.CLASS_NAME, "chat-item")
+        coach.click()
 
-        assert "Hire request sent!" in success_message.text
-        print("Succesfully sent hire request to coach")
+        message = driver.find_element(By.CSS_SELECTOR, 'input[placeholder="Type a message…"]')
+        message.send_keys("Hello how are you?")
+        time.sleep(2)
+
+        send_message = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='Send']")))
+        driver.execute_script("arguments[0].click();", send_message)
+        time.sleep(3)
+        
+        wait.until(EC.visibility_of_element_located((By.XPATH, "//*[contains(text(), 'Hello how are you?')]")))
+
+        print("Successfully sent message")
+        driver.get("http://localhost:3000/dashboard")
+        time.sleep(2)
+        
     finally:
         driver.quit()
 
-hireCoach()
+
+sendMessage()
 

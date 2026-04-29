@@ -3,6 +3,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import time
 
 
 def logWorkout():
@@ -11,7 +12,11 @@ def logWorkout():
     wait = WebDriverWait(driver, 10)
 
     try:
-        driver.get("http://localhost:3000/login")
+        driver.get("http://localhost:3000")
+        time.sleep(2)
+        login_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//a[normalize-space()='Log in']")))
+        login_button.click()
+        time.sleep(2)
 
         wait.until(EC.visibility_of_element_located((By.ID, "email"))).send_keys("test@gmail.com")
         driver.find_element(By.ID, "password").send_keys("Password123")
@@ -43,7 +48,7 @@ def logWorkout():
         )
         notes_input.send_keys("it went well")
         
-
+        time.sleep(3)
         log_session_button = wait.until(
             EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='Log session']"))
         )

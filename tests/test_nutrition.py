@@ -13,7 +13,11 @@ def nutrition():
     wait = WebDriverWait(driver, 10)
 
     try:
-        driver.get("http://localhost:3000/login")
+        driver.get("http://localhost:3000")
+        time.sleep(2)
+        login_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//a[normalize-space()='Log in']")))
+        login_button.click()
+        time.sleep(2)
 
         wait.until(EC.visibility_of_element_located((By.ID, "email"))).send_keys("test@gmail.com")
         driver.find_element(By.ID, "password").send_keys("Password123")
@@ -43,6 +47,7 @@ def nutrition():
         number_inputs[2].send_keys("50")
         number_inputs[3].send_keys("10")
         
+        time.sleep(2)
         save_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='Save meal']")))
         driver.execute_script("arguments[0].click();", save_button)
         
@@ -64,6 +69,7 @@ def nutrition():
         water_input =  driver.find_element(By.CSS_SELECTOR, 'input[placeholder="e.g. 2000"]')
         water_input.send_keys("1500")
         
+        time.sleep(2)
         save_metrics = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='Save daily metrics']")))
         driver.execute_script("arguments[0].click();", save_metrics)
         
@@ -82,6 +88,7 @@ def nutrition():
         waist_input = driver.find_element(By.CSS_SELECTOR, 'input[placeholder="cm"]')
         waist_input.send_keys("60")
         
+        time.sleep(2)
         save_body_metrics = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='Save body metrics']")))
         driver.execute_script("arguments[0].click();", save_body_metrics)
         
@@ -109,6 +116,7 @@ def nutrition():
         sleep_dropdown = wait.until(EC.presence_of_element_located((By.TAG_NAME, "select")))
         Select(sleep_dropdown).select_by_value("excellent")
         
+        time.sleep(2)
         save_wellness = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='Save wellness']")))
         driver.execute_script("arguments[0].click();", save_wellness)
         
@@ -127,6 +135,7 @@ def nutrition():
         notes_input = driver.find_element(By.CSS_SELECTOR, 'textarea[placeholder*="Describe the meal plan"]')
         notes_input.send_keys("100g chicken, 4 eggs, 50g tuna, 1 protein shake, 30g beef")
         
+        time.sleep(2)
         plan_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='Save plan']")))
         driver.execute_script("arguments[0].click();", plan_button)
         
