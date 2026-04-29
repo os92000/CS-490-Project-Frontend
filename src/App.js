@@ -27,6 +27,9 @@ import TopCoachesPage from './pages/TopCoachesPage';
 import BrowseExercises from './pages/BrowseExercises';
 import FilterWorkoutPlan from './pages/FilterWorkoutPlan';
 import CustomizeWorkoutPlan from './pages/CustomizeWorkoutPlan';
+import ExerciseLibrary from './pages/ExerciseLibrary';
+import ProgressPhotos from './pages/ProgressPhotos';
+import Payments from './pages/Payments';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireAuth = true, redirectTo = '/login' }) => {
@@ -239,6 +242,30 @@ function App() {
           element={
             <ProtectedRoute>
               <BrowseExercises />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/exercises"
+          element={
+            <ProtectedRoute>
+              <ExerciseLibrary />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/progress-photos"
+          element={
+            <ProtectedRoute>
+              <ProgressPhotos />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/payments"
+          element={
+            <ProtectedRoute>
+              <Payments />
             </ProtectedRoute>
           }
         />

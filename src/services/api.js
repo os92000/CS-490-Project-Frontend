@@ -255,4 +255,17 @@ export const paymentsAPI = {
   getPaymentHistory: () => api.get('/payments/history'),
 };
 
+// ============================================
+// Progress Photos APIs
+// ============================================
+
+export const progressPhotosAPI = {
+  getPhotos: (params) => api.get('/progress-photos', { params }),
+  uploadPhoto: (formData) => api.post('/progress-photos', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  deletePhoto: (photoId) => api.delete(`/progress-photos/${photoId}`),
+  getClientPhotos: (clientId) => api.get(`/progress-photos/client/${clientId}`),
+};
+
 export default api;
