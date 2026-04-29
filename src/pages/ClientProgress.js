@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { coachesAPI } from '../services/api';
-import Avatar from '../components/Avatar';
-import FitChart, { lineDataset, barDataset } from '../components/FitChart';
 
-const moodEmoji = { excellent:'😄', good:'😊', okay:'😐', poor:'😔', terrible:'😞' };
+const moodEmoji = { great:'😄', good:'😊', okay:'😐', poor:'😔', terrible:'😞' };
+const mealTypeColor = { breakfast:'badge-amber', lunch:'badge-green', dinner:'badge-blue', snack:'badge-teal' };
 
 const ClientProgress = () => {
   const { clientId } = useParams();
@@ -12,6 +11,7 @@ const ClientProgress = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('overview');
   const [removing, setRemoving] = useState(false);
 
   useEffect(() => {
@@ -33,25 +33,45 @@ const ClientProgress = () => {
     }
   };
 
-  const openChat = () => navigate('/my-clients', { state: { tab: 'messages', clientId: parseInt(clientId) } });
+  const openChat = () => navigate('/my-clients', { state: { tab: 'messages', clientId: parseInt(clientId, 10) } });
 
   if (loading) return <div className="loading">Loading client progress…</div>;
-  if (!data) return <div className="container page-shell"><div className="error-message">{error}</div><button className="btn btn-secondary mt-16" onClick={() => navigate('/my-clients')}>← Back to clients</button></div>;
+  if (error) return (
+    <div className="container page-shell">
+      <div className="error-message">{error}</div>
+      <button className="btn btn-secondary mt-16" onClick={() => navigate('/my-clients')}>← Back to clients</button>
+    </div>
+  );
 
   const client = data.client;
-  const name = client?.profile?.first_name ? `${client.profile.first_name} ${client.profile.last_name||''}`.trim() : client?.email || 'Client';
+  const name = client?.profile?.first_name
+    ? `${client.profile.first_name} ${client.profile.last_name || ''}`.trim()
+    : client?.email || 'Client';
   const initials = (client?.profile?.first_name?.[0] || client?.email?.[0] || '?').toUpperCase();
+
+  const totalCalToday = (data.meal_logs || []).filter(m => m.date === new Date().toISOString().split('T')[0]).reduce((s, m) => s + (m.calories || 0), 0);
+  const latestBody = data.body_metrics?.[0];
+  const latestWellness = data.wellness_logs?.[0];
+
+  const tabs = [
+    ['overview', 'Overview'],
+    ['diet', `Diet & Meals (${(data.meal_logs || []).length})`],
+    ['workouts', `Workouts (${(data.workout_logs || []).length})`],
+    ['metrics', `Body Metrics (${(data.body_metrics || []).length})`],
+    ['wellness', `Wellness (${(data.wellness_logs || []).length})`],
+    ['photos', 'Progress Photos'],
+  ];
 
   return (
     <div className="container page-shell">
       <button className="btn btn-ghost btn-sm" onClick={() => navigate('/my-clients')} style={{ alignSelf: 'flex-start' }}>← Back to clients</button>
 
-      {error && <div className="error-message">{error}</div>}
-
       {/* HERO */}
       <div className="page-hero fade-up">
         <div className="flex items-center gap-20" style={{ flexWrap: 'wrap' }}>
-          <Avatar src={client?.profile?.profile_picture} name={name} size={72} style={{ border: '3px solid rgba(88,166,255,0.3)' }} />
+          <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg,var(--blue),var(--teal))', display: 'grid', placeItems: 'center', fontSize: 28, fontWeight: 700, color: '#000', flexShrink: 0, overflow: 'hidden', border: '3px solid rgba(88,166,255,0.3)' }}>
+            {client?.profile?.profile_picture ? <img src={client.profile.profile_picture} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : initials}
+          </div>
           <div className="hero-copy" style={{ flex: 1 }}>
             <p className="eyebrow">Client progress</p>
             <h1>{name}</h1>
@@ -66,158 +86,196 @@ const ClientProgress = () => {
         </div>
       </div>
 
-      {/* SURVEY */}
-      {data.survey && (
-        <div className="card fade-up fade-up-1">
-          <div className="section-header"><div><h2>Fitness profile</h2><p className="muted-text">From initial survey</p></div></div>
-          <div className="stats-grid">
+      {/* QUICK STATS */}
+      <div className="stats-grid fade-up fade-up-1">
+        {[
+          { label: 'Latest weight', value: latestBody?.weight_kg ? `${latestBody.weight_kg} kg` : '—', sub: latestBody?.date || 'no data' },
+          { label: 'Workouts logged', value: data.workout_logs?.length || 0, sub: 'total sessions' },
+          { label: 'Meals logged', value: (data.meal_logs || []).length, sub: 'total entries' },
+          { label: 'Current mood', value: moodEmoji[latestWellness?.mood] || '—', sub: latestWellness?.date || 'no data' },
+        ].map(s => (
+          <div key={s.label} className="stat-card">
+            <span className="stat-label">{s.label}</span>
+            <span className="stat-value" style={{ fontSize: 20 }}>{s.value}</span>
+            <span className="stat-sub">{s.sub}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* TABS */}
+      <div className="tab-row fade-up fade-up-2">
+        {tabs.map(([v, l]) => <button key={v} className={`tab-button ${activeTab === v ? 'active' : ''}`} onClick={() => setActiveTab(v)}>{l}</button>)}
+      </div>
+
+      {/* OVERVIEW */}
+      {activeTab === 'overview' && (
+        <div className="two-col fade-up">
+          <div className="card">
+            <h2 style={{ marginBottom: 14 }}>Fitness profile</h2>
+            {data.survey ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {[
+                  ['Fitness level', data.survey.fitness_level],
+                  ['Age', data.survey.age],
+                  ['Weight', data.survey.weight ? `${data.survey.weight} kg` : '—'],
+                  ['Goals', data.survey.goals],
+                ].map(([l, v]) => (
+                  <div key={l} className="stat-card">
+                    <span className="stat-label">{l}</span>
+                    <span className="stat-value" style={{ fontSize: 15, lineHeight: 1.3 }}>{v || '—'}</span>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="muted-text">No fitness survey completed yet.</p>}
+          </div>
+          <div className="card">
+            <h2 style={{ marginBottom: 14 }}>Today's nutrition</h2>
+            {(data.meal_logs || []).filter(m => m.date === new Date().toISOString().split('T')[0]).length === 0 ? (
+              <p className="muted-text">No meals logged today.</p>
+            ) : (
+              <>
+                <div className="stat-card" style={{ marginBottom: 14 }}>
+                  <span className="stat-label">Total calories today</span>
+                  <span className="stat-value" style={{ color: 'var(--amber)' }}>{totalCalToday} kcal</span>
+                </div>
+                {(data.meal_logs || []).filter(m => m.date === new Date().toISOString().split('T')[0]).slice(0, 3).map(m => (
+                  <div key={m.id} className="list-row">
+                    <div>
+                      <span className={`badge ${mealTypeColor[m.meal_type] || 'badge-muted'}`} style={{ fontSize: 10, marginBottom: 4 }}>{m.meal_type}</span>
+                      <p className="muted-text" style={{ fontSize: 13 }}>{m.food_items || 'No details'}</p>
+                    </div>
+                    {m.calories && <strong style={{ fontSize: 13, color: 'var(--amber)' }}>{m.calories} kcal</strong>}
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* DIET */}
+      {activeTab === 'diet' && (
+        <div className="fade-up">
+          <div className="two-col" style={{ marginBottom: 18 }}>
             {[
-              { label:'Fitness level', value: data.survey.fitness_level || '—' },
-              { label:'Age', value: data.survey.age || '—' },
-              { label:'Weight', value: data.survey.weight ? `${data.survey.weight} kg` : '—' },
-              { label:'Goals', value: data.survey.goals || '—' },
+              { label: 'Total entries', value: (data.meal_logs || []).length },
+              { label: 'Avg daily calories', value: Math.round((data.meal_logs || []).reduce((s, m) => s + (m.calories || 0), 0) / Math.max([...new Set((data.meal_logs || []).map(m => m.date))].length, 1)) + ' kcal' },
+              { label: 'Avg protein', value: Math.round((data.meal_logs || []).reduce((s, m) => s + (m.protein_g || 0), 0) / Math.max([...new Set((data.meal_logs || []).map(m => m.date))].length, 1)) + 'g/day' },
+              { label: 'Logging streak', value: [...new Set((data.meal_logs || []).map(m => m.date))].length + ' days' },
             ].map(s => (
               <div key={s.label} className="stat-card">
                 <span className="stat-label">{s.label}</span>
-                <span className="stat-value" style={{ fontSize: 16, lineHeight: 1.3 }}>{s.value}</span>
+                <span className="stat-value" style={{ fontSize: 18 }}>{s.value}</span>
               </div>
             ))}
           </div>
+
+          {(data.meal_logs || []).length === 0 ? (
+            <div className="card" style={{ textAlign: 'center', padding: '60px 40px' }}>
+              <p style={{ fontSize: 40, marginBottom: 12 }}>🥗</p>
+              <h3 style={{ marginBottom: 8 }}>No meals logged yet</h3>
+              <p className="muted-text">This client hasn't logged any meals yet.</p>
+            </div>
+          ) : (
+            <div className="card">
+              <div className="section-header"><div><h2>Meal log</h2><p className="muted-text">All logged meals, newest first</p></div></div>
+              {Object.entries((data.meal_logs || []).reduce((acc, m) => { (acc[m.date] = acc[m.date] || []).push(m); return acc; }, {}))
+                .sort(([a], [b]) => b.localeCompare(a))
+                .map(([date, meals]) => (
+                  <div key={date} style={{ marginBottom: 20 }}>
+                    <div className="flex items-center gap-12" style={{ marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
+                      <strong style={{ fontSize: 14 }}>{date}</strong>
+                      <span className="badge badge-amber" style={{ fontSize: 10 }}>{meals.reduce((s, m) => s + (m.calories || 0), 0)} kcal total</span>
+                      <span className="badge badge-green" style={{ fontSize: 10 }}>{meals.reduce((s, m) => s + (m.protein_g || 0), 0)}g protein</span>
+                    </div>
+                    {meals.map(m => (
+                      <div key={m.id} className="list-row">
+                        <div>
+                          <div className="flex items-center gap-8 mb-4">
+                            <span className={`badge ${mealTypeColor[m.meal_type] || 'badge-muted'}`} style={{ fontSize: 10 }}>{m.meal_type}</span>
+                          </div>
+                          <p className="muted-text" style={{ fontSize: 13 }}>{m.food_items || 'No details recorded'}</p>
+                          {m.notes && <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>{m.notes}</p>}
+                        </div>
+                        <div className="flex flex-col items-end gap-4" style={{ flexShrink: 0 }}>
+                          {m.calories && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--amber)', fontFamily: "'Syne', sans-serif" }}>{m.calories} kcal</span>}
+                          <div className="flex gap-6">
+                            {m.protein_g && <span className="badge badge-green" style={{ fontSize: 10 }}>{m.protein_g}g protein</span>}
+                            {m.carbs_g && <span className="badge badge-blue" style={{ fontSize: 10 }}>{m.carbs_g}g carbs</span>}
+                            {m.fat_g && <span className="badge badge-amber" style={{ fontSize: 10 }}>{m.fat_g}g fat</span>}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+            </div>
+          )}
         </div>
       )}
 
-      <div className="two-col fade-up fade-up-2">
-        {/* BODY METRICS */}
-        <div className="card">
-          <div className="section-header"><div><h2>Body metrics</h2><p className="muted-text">Recent entries</p></div></div>
-          {!data.body_metrics?.length ? (
-            <p className="muted-text">No body metrics logged yet.</p>
-          ) : data.body_metrics.map(m => (
-            <div key={m.id} className="list-row">
+      {activeTab === 'workouts' && (
+        <div className="card fade-up">
+          <div className="section-header"><div><h2>Workout logs</h2><p className="muted-text">{data.workout_logs?.length || 0} sessions</p></div></div>
+          {!data.workout_logs?.length ? (
+            <p className="muted-text">No workouts logged yet.</p>
+          ) : data.workout_logs.map(log => (
+            <div key={log.id} className="list-row">
               <div>
-                <strong style={{ fontSize: 14 }}>{m.date}</strong>
-                <div className="flex gap-6 mt-4">
-                  {m.weight_kg && <span className="badge badge-green" style={{ fontSize: 11 }}>{m.weight_kg} kg</span>}
-                  {m.body_fat_percentage && <span className="badge badge-amber" style={{ fontSize: 11 }}>{m.body_fat_percentage}% fat</span>}
-                  {m.waist_cm && <span className="badge badge-muted" style={{ fontSize: 11 }}>{m.waist_cm} cm</span>}
-                </div>
+                <strong style={{ fontSize: 14 }}>{log.date}</strong>
+                {log.plan && <span className="muted-text" style={{ marginLeft: 10, fontSize: 13 }}>{log.plan.title}</span>}
+                {log.notes && <p className="muted-text" style={{ fontSize: 12, marginTop: 3 }}>{log.notes}</p>}
+              </div>
+              <div className="flex items-center gap-8">
+                {log.duration_minutes && <span className="badge badge-muted">{log.duration_minutes} min</span>}
+                {log.rating && <span style={{ color: 'var(--amber)', fontSize: 14 }}>{'★'.repeat(log.rating)}</span>}
               </div>
             </div>
           ))}
         </div>
+      )}
 
-        {/* WELLNESS */}
-        <div className="card">
-          <div className="section-header"><div><h2>Wellness logs</h2><p className="muted-text">Mood and energy entries</p></div></div>
-          {!data.wellness_logs?.length ? (
-            <p className="muted-text">No wellness data yet.</p>
-          ) : data.wellness_logs.map(log => (
+      {activeTab === 'metrics' && (
+        <div className="card fade-up">
+          <div className="section-header"><div><h2>Body metrics</h2><p className="muted-text">Weight, body fat, measurements</p></div></div>
+          {!data.body_metrics?.length ? <p className="muted-text">No body metrics logged yet.</p> : data.body_metrics.map(m => (
+            <div key={m.id} className="list-row">
+              <div><strong style={{ fontSize: 14 }}>{m.date}</strong></div>
+              <div className="flex gap-8 flex-wrap">
+                {m.weight_kg && <span className="badge badge-green">{m.weight_kg} kg</span>}
+                {m.body_fat_percentage && <span className="badge badge-amber">{m.body_fat_percentage}% fat</span>}
+                {m.waist_cm && <span className="badge badge-muted">{m.waist_cm}cm waist</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeTab === 'wellness' && (
+        <div className="card fade-up">
+          <div className="section-header"><div><h2>Wellness logs</h2><p className="muted-text">Mood, energy, sleep, stress</p></div></div>
+          {!data.wellness_logs?.length ? <p className="muted-text">No wellness data yet.</p> : data.wellness_logs.map(log => (
             <div key={log.id} className="list-row">
               <div>
                 <div className="flex items-center gap-8 mb-4">
-                  <span style={{ fontSize: 18 }}>{moodEmoji[log.mood] || '😐'}</span>
+                  <span style={{ fontSize: 20 }}>{moodEmoji[log.mood] || '😐'}</span>
                   <strong style={{ fontSize: 14 }}>{log.date}</strong>
+                  <span className="badge badge-muted" style={{ fontSize: 10, textTransform: 'capitalize' }}>{log.mood}</span>
                 </div>
-                <p className="muted-text" style={{ fontSize: 12 }}>Energy {log.energy_level}/10 · Stress {log.stress_level}/10 · Sleep {log.sleep_hours || '—'}h</p>
+                <p className="muted-text" style={{ fontSize: 12 }}>Energy {log.energy_level}/10 · Stress {log.stress_level}/10 · Sleep {log.sleep_hours || '—'}h ({log.sleep_quality || '—'})</p>
               </div>
             </div>
           ))}
         </div>
-      </div>
-
-      {/* PROGRESS CHARTS */}
-      {(data.body_metrics?.length >= 2 || data.workout_logs?.length >= 2) && (
-        <div className="two-col fade-up fade-up-3">
-          {data.body_metrics?.length >= 2 && (
-            <div className="card">
-              <div className="section-header"><div><h2>Weight trend</h2><p className="muted-text">Body metrics history</p></div></div>
-              <FitChart
-                type="line"
-                labels={[...data.body_metrics].reverse().map(m => m.date?.slice(5) || '')}
-                datasets={[lineDataset('Weight (kg)', [...data.body_metrics].reverse().map(m => parseFloat(m.weight_kg) || null), '#39d0b4', true)]}
-                height={160}
-              />
-            </div>
-          )}
-          {data.workout_logs?.length >= 2 && (
-            <div className="card">
-              <div className="section-header"><div><h2>Session ratings</h2><p className="muted-text">Workout quality trend</p></div></div>
-              <FitChart
-                type="bar"
-                labels={[...data.workout_logs].reverse().map(l => l.date?.slice(5) || '')}
-                datasets={[barDataset('Rating', [...data.workout_logs].reverse().map(l => l.rating || 0), '#e3b341')]}
-                height={160}
-              />
-            </div>
-          )}
-        </div>
       )}
 
-      {/* WORKOUT PLANS */}
-      <div className="card fade-up fade-up-3">
-        <div className="section-header"><div><h2>Active workout plans</h2><p className="muted-text">{data.workout_plans?.length || 0} plans</p></div></div>
-        {!data.workout_plans?.length ? (
-          <p className="muted-text">No active plans assigned.</p>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
-            {data.workout_plans.map(plan => (
-              <div key={plan.id} style={{ padding: 16, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)' }}>
-                <div className="flex justify-between items-start mb-8">
-                  <strong style={{ fontSize: 15 }}>{plan.name}</strong>
-                  <span className="badge badge-green" style={{ fontSize: 10 }}>{plan.status}</span>
-                </div>
-                {plan.description && <p className="muted-text" style={{ fontSize: 12, marginBottom: 10, lineHeight: 1.4 }}>{plan.description}</p>}
-                <div className="flex flex-wrap gap-6">
-                  {plan.start_date && <span className="badge badge-muted" style={{ fontSize: 10 }}>{plan.start_date}</span>}
-                  {plan.end_date && <span className="badge badge-muted" style={{ fontSize: 10 }}>{plan.end_date}</span>}
-                  {plan.workout_days?.length > 0 && <span className="badge badge-teal" style={{ fontSize: 10 }}>{plan.workout_days.length} days</span>}
-                </div>
-                {plan.workout_days?.length > 0 && (
-                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                    {plan.workout_days.slice(0, 3).map((day, i) => (
-                      <div key={day.id || i} style={{ fontSize: 12, marginBottom: 4 }}>
-                        <strong style={{ color: 'var(--text-2)' }}>{day.name || `Day ${day.day_number || i + 1}`}</strong>
-                        {day.plan_exercises?.length > 0 && (
-                          <span className="muted-text" style={{ marginLeft: 6 }}>
-                            {day.plan_exercises.slice(0, 2).map(pe => pe.exercise?.name).filter(Boolean).join(', ')}
-                            {day.plan_exercises.length > 2 && ` +${day.plan_exercises.length - 2}`}
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                    {plan.workout_days.length > 3 && (
-                      <p className="muted-text" style={{ fontSize: 11, marginTop: 4 }}>+{plan.workout_days.length - 3} more days</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* WORKOUT LOGS */}
-      <div className="card fade-up fade-up-3">
-        <div className="section-header"><div><h2>Workout logs</h2><p className="muted-text">{data.workout_logs?.length || 0} sessions</p></div></div>
-        {!data.workout_logs?.length ? (
-          <p className="muted-text">No workouts logged yet.</p>
-        ) : (
-          <div>
-            {data.workout_logs.map(log => (
-              <div key={log.id} className="list-row">
-                <div>
-                  <strong style={{ fontSize: 14 }}>{log.date}</strong>
-                  <p className="muted-text" style={{ fontSize: 12, marginTop: 3 }}>{log.notes || 'No notes'}</p>
-                </div>
-                <div className="flex items-center gap-8">
-                  {log.duration_minutes && <span className="badge badge-muted">{log.duration_minutes} min</span>}
-                  {log.rating && <span className="badge badge-amber">{'★'.repeat(log.rating)}</span>}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {activeTab === 'photos' && (
+        <div className="card fade-up" style={{ textAlign: 'center', padding: '60px 40px' }}>
+          <p style={{ fontSize: 40, marginBottom: 12 }}>📷</p>
+          <h3 style={{ marginBottom: 8 }}>Progress photos</h3>
+          <p className="muted-text">Client progress photos are accessible with their permission. This feature requires client-side upload.</p>
+        </div>
+      )}
     </div>
   );
 };

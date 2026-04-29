@@ -1,11 +1,15 @@
-import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Avatar from './Avatar';
 
 const Navbar = () => {
   const { user, logout, hasRole } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const menuRef = useRef(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isCompactNav, setIsCompactNav] = useState(window.innerWidth < 1380);
   const navCls = ({ isActive }) => isActive ? 'active' : '';
 
   const handleLogout = async () => {
@@ -25,33 +29,118 @@ const Navbar = () => {
 
   const roleBadgeClass = { client: 'badge-green', coach: 'badge-blue', both: 'badge-teal', admin: 'badge-amber' }[user?.role] || 'badge-muted';
 
+  const isClient = hasRole(['client', 'both']);
+  const isCoach = hasRole(['coach', 'both']);
+  const isAdmin = user?.role === 'admin';
+
+  useEffect(() => {
+    const onOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onOutside);
+    return () => document.removeEventListener('mousedown', onOutside);
+  }, []);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const onResize = () => setIsCompactNav(window.innerWidth < 1380);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const primaryLinks = useMemo(() => {
+    const links = [{ to: '/dashboard', label: 'Dashboard' }];
+    if (isClient) {
+      links.push(
+        { to: '/coaches', label: 'Coaches' },
+        { to: '/my-workouts', label: 'Workouts' },
+        { to: '/calendar', label: 'Calendar' },
+      );
+    }
+    if (isCoach) {
+      links.push({ to: '/my-clients', label: 'Clients' });
+    }
+    if (isClient || isCoach) {
+      links.push({ to: '/chat', label: 'Chat' });
+    }
+    if (isAdmin) {
+      links.push({ to: '/admin', label: 'Admin' });
+    }
+    return links;
+  }, [isClient, isCoach, isAdmin]);
+
+  const moreLinks = useMemo(() => {
+    const links = [];
+    if (isClient) {
+      links.push(
+        { to: '/exercises', label: 'Exercises' },
+        { to: '/nutrition', label: 'Nutrition' },
+        { to: '/analytics', label: 'Analytics' },
+      );
+    }
+    if (isClient || isCoach) {
+      links.push(
+        { to: '/progress-photos', label: 'Progress Photos' },
+        { to: '/payments', label: 'Payments' },
+      );
+    }
+    if (isCoach) {
+      links.push({ to: '/coach-settings', label: 'Coach Settings' });
+    }
+    links.push({ to: '/profile', label: 'Profile' });
+
+    const dedup = [];
+    const seen = new Set();
+    links.forEach((l) => {
+      if (!seen.has(l.to)) {
+        dedup.push(l);
+        seen.add(l.to);
+      }
+    });
+    return dedup;
+  }, [isClient, isCoach]);
+
+  const moreActive = moreLinks.some((l) => location.pathname === l.to);
+
   return (
     <nav>
       <div className="container">
         <NavLink to="/dashboard" className="logo">FitApp</NavLink>
 
         <ul className="nav-links">
-          <li><NavLink to="/dashboard" className={navCls}>Dashboard</NavLink></li>
+          {primaryLinks.map((l) => (
+            <li key={l.to}><NavLink to={l.to} className={navCls}>{l.label}</NavLink></li>
+          ))}
 
-          {hasRole(['client', 'both']) && (<>
-            <li><NavLink to="/coaches" className={navCls}>Coaches</NavLink></li>
-            <li><NavLink to="/my-workouts" className={navCls}>Workouts</NavLink></li>
-            <li><NavLink to="/calendar" className={navCls}>Calendar</NavLink></li>
-            <li><NavLink to="/nutrition" className={navCls}>Nutrition</NavLink></li>
-            <li><NavLink to="/analytics" className={navCls}>Analytics</NavLink></li>
-            <li><NavLink to="/chat" className={navCls}>Chat</NavLink></li>
-          </>)}
-
-          {hasRole(['coach', 'both']) && (<>
-            <li><NavLink to="/my-clients" className={navCls}>Clients</NavLink></li>
-            <li><NavLink to="/coach-settings" className={navCls}>Coach</NavLink></li>
-          </>)}
-
-          {user?.role === 'admin' && (
-            <li><NavLink to="/admin" className={navCls}>Admin</NavLink></li>
+          {isCompactNav ? (
+            <li ref={menuRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                className={`nav-menu-btn ${moreActive ? 'active' : ''}`}
+                onClick={() => setMenuOpen((open) => !open)}
+                aria-expanded={menuOpen}
+              >
+                More
+                <span style={{ fontSize: 10, marginLeft: 5 }}>▾</span>
+              </button>
+              {menuOpen && (
+                <div className="nav-dropdown-menu">
+                  {moreLinks.map((l) => (
+                    <NavLink key={l.to} to={l.to} className={navCls}>{l.label}</NavLink>
+                  ))}
+                </div>
+              )}
+            </li>
+          ) : (
+            moreLinks.map((l) => (
+              <li key={l.to}><NavLink to={l.to} className={navCls}>{l.label}</NavLink></li>
+            ))
           )}
-
-          <li><NavLink to="/profile" className={navCls}>Profile</NavLink></li>
         </ul>
 
         {user && (
