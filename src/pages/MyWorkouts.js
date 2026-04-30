@@ -100,6 +100,7 @@ const MyWorkouts = () => {
   const [stats, setStats] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [selectedPlanLoading, setSelectedPlanLoading] = useState(false);
+  const selectedPlanIdRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(isCoach && !isClient ? 'my-plans' : 'plans');
   const [error, setError] = useState('');
@@ -178,22 +179,37 @@ const MyWorkouts = () => {
     } catch(err) { setError(err.response?.data?.message || 'Failed to log workout.'); }
   };
 
-  const selectPlan = async (plan) => {
+  const togglePlan = (plan) => {
+    // If already selected, collapse it
+    if (selectedPlan?.id === plan.id || selectedPlanIdRef.current === plan.id) {
+      selectedPlanIdRef.current = null;
+      setSelectedPlan(null);
+      setSelectedPlanLoading(false);
+      return;
+    }
+    // Otherwise expand: fetch full details
     setError('');
     setSelectedPlanLoading(true);
-    try {
-      const response = await workoutsAPI.getWorkoutPlan(plan.id);
-      if (response?.data?.success && response?.data?.data) {
-        setSelectedPlan(response.data.data);
-      } else {
+    selectedPlanIdRef.current = plan.id;
+    workoutsAPI.getWorkoutPlan(plan.id)
+      .then((response) => {
+        if (selectedPlanIdRef.current !== plan.id) return; // stale
+        if (response?.data?.success && response?.data?.data) {
+          setSelectedPlan(response.data.data);
+        } else {
+          setSelectedPlan(plan);
+        }
+      })
+      .catch(() => {
+        if (selectedPlanIdRef.current !== plan.id) return; // stale
         setSelectedPlan(plan);
-      }
-    } catch {
-      setSelectedPlan(plan);
-      setError('Could not load full workout plan details. Showing summary only.');
-    } finally {
-      setSelectedPlanLoading(false);
-    }
+        setError('Could not load full workout plan details. Showing summary only.');
+      })
+      .finally(() => {
+        if (selectedPlanIdRef.current === plan.id) {
+          setSelectedPlanLoading(false);
+        }
+      });
   };
 
   const diffColor = { beginner:'badge-green', intermediate:'badge-amber', advanced:'badge-red' };
@@ -432,7 +448,7 @@ const MyWorkouts = () => {
                   key={plan.id}
                   type="button"
                   className="card"
-                  onClick={() => selectPlan(plan)}
+                  onClick={() => togglePlan(plan)}
                   style={{ borderRadius: 16, border: isSelected ? '1px solid var(--teal)' : '1px solid var(--border)', transition: 'all 0.15s', cursor: 'pointer', textAlign: 'left', width: '100%', background: isSelected ? 'rgba(95,215,228,0.08)' : undefined, color: 'var(--text)' }}
                 >
                   <div className="flex justify-between items-start mb-12">
@@ -550,7 +566,12 @@ const MyWorkouts = () => {
                     key={plan.id}
                     type="button"
                     className="card"
-                    onClick={() => { selectPlan(plan); loadPlanClients(plan.id); }}
+                    onClick={() => {
+                      const wasSelected = selectedPlan?.id === plan.id || selectedPlanIdRef.current === plan.id;
+                      togglePlan(plan);
+                      // Load client list when expanding (not collapsing)
+                      if (!wasSelected) loadPlanClients(plan.id);
+                    }}
                     style={{ borderRadius: 16, border: isSelected ? '1px solid var(--teal)' : '1px solid var(--border)', transition: 'all 0.15s', cursor: 'pointer', textAlign: 'left', width: '100%', background: isSelected ? 'rgba(95,215,228,0.08)' : undefined, color: 'var(--text)' }}
                   >
                     <div className="flex justify-between items-start mb-12">

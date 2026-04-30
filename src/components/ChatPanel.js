@@ -49,7 +49,7 @@ const ChatPanel = ({ initialClientId } = {}) => {
 
   useEffect(() => {
     loadConversations();
-    const sock = io(window.location.origin, { path: '/socket.io' });
+    const sock = io(process.env.REACT_APP_SOCKET_URL || window.location.origin, { path: '/socket.io' });
     setSocket(sock);
 
     sock.on('connect', () => {
