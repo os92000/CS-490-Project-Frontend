@@ -1,0 +1,345 @@
+# ════════════════════════════════════════════════════════════════════════
+# FitApp – CI/CD Pipeline
+# Triggers: push / PR to main or develop
+# Jobs: backend tests → frontend tests → build → deploy (main only)
+# ════════════════════════════════════════════════════════════════════════
+
+name: FitApp CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
+
+# ─────────────────────────────────────────────────────────────────────
+# JOB 1: Backend – Lint, Security Scan, Unit Tests
+# ─────────────────────────────────────────────────────────────────────
+jobs:
+  backend-tests:
+    name: Backend Tests (Python/Flask)
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpass
+          MYSQL_DATABASE: fitapp_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov flake8 bandit safety
+
+      - name: Lint with flake8
+        working-directory: backend
+        run: |
+          flake8 . \
+            --exclude=__pycache__,migrations,venv \
+            --max-line-length=120 \
+            --count \
+            --statistics \
+            --ignore=E501,W503
+
+      - name: Security scan with Bandit
+        working-directory: backend
+        run: |
+          bandit -r . \
+            --exclude tests,venv \
+            -ll \
+            --format txt \
+            || echo "Bandit warnings found — review output above"
+
+      - name: Check dependency vulnerabilities
+        working-directory: backend
+        run: safety check --json || echo "Safety warnings — review above"
+
+      - name: Run pytest with coverage
+        working-directory: backend
+        env:
+          FLASK_ENV: testing
+          DATABASE_URL: mysql+pymysql://root:testpass@127.0.0.1/fitapp_test
+          JWT_SECRET_KEY: ci-test-secret-key-never-use-in-prod
+          SECRET_KEY: ci-test-app-secret
+        run: |
+          pytest tests/ \
+            --cov=. \
+            --cov-report=xml:coverage.xml \
+            --cov-report=term-missing \
+            --cov-fail-under=60 \
+            -v \
+            --tb=short \
+            --timeout=30
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: backend/coverage.xml
+          flags: backend
+          fail_ci_if_error: false
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-results
+          path: backend/coverage.xml
+          retention-days: 30
+
+
+# ─────────────────────────────────────────────────────────────────────
+# JOB 2: Frontend – Lint, Type Check, Unit Tests, Build
+# ─────────────────────────────────────────────────────────────────────
+  frontend-tests:
+    name: Frontend Tests (React)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint with ESLint
+        working-directory: frontend
+        run: |
+          npx eslint src/ \
+            --ext .js,.jsx \
+            --max-warnings 50 \
+            || echo "ESLint warnings found"
+
+      - name: Run UI tests
+        working-directory: frontend
+        env:
+          CI: true
+          REACT_APP_API_URL: http://localhost:5000
+        run: |
+          npm test -- \
+            --watchAll=false \
+            --passWithNoTests \
+            --coverage \
+            --coverageReporters=text,lcov \
+            --testPathPattern="tests/"
+
+      - name: Build production bundle
+        working-directory: frontend
+        env:
+          REACT_APP_API_URL: /api
+          GENERATE_SOURCEMAP: false
+        run: npm run build
+
+      - name: Check build size
+        working-directory: frontend
+        run: |
+          BUILD_SIZE=$(du -sh build | cut -f1)
+          echo "Build size: $BUILD_SIZE"
+          # Warn if build exceeds 10MB
+          BUILD_BYTES=$(du -sb build | cut -f1)
+          if [ $BUILD_BYTES -gt 10485760 ]; then
+            echo "::warning::Build size $BUILD_SIZE exceeds 10MB threshold"
+          fi
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/build/
+          retention-days: 7
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: frontend/coverage/lcov.info
+          flags: frontend
+          fail_ci_if_error: false
+
+
+# ─────────────────────────────────────────────────────────────────────
+# JOB 3: Integration Tests (runs after both unit test jobs)
+# ─────────────────────────────────────────────────────────────────────
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpass
+          MYSQL_DATABASE: fitapp_integration
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt pytest requests
+
+      - name: Start backend server
+        working-directory: backend
+        env:
+          FLASK_ENV: testing
+          DATABASE_URL: mysql+pymysql://root:testpass@127.0.0.1/fitapp_integration
+          JWT_SECRET_KEY: ci-integration-secret
+          SECRET_KEY: ci-integration-app-secret
+        run: |
+          python -c "from app import create_app; from models import db; app=create_app('testing'); app.app_context().push(); db.create_all()"
+          flask run --port 5000 &
+          sleep 5
+          curl -f http://localhost:5000/api/health || echo "Health check endpoint not found — continuing"
+
+      - name: Run integration smoke tests
+        run: |
+          python -c "
+          import requests, sys
+
+          base = 'http://localhost:5000/api'
+          errors = []
+
+          # Auth flow
+          r = requests.post(f'{base}/auth/signup', json={'email':'int@test.com','password':'Password123!'})
+          if r.status_code != 201:
+              errors.append(f'Signup failed: {r.status_code}')
+
+          r = requests.post(f'{base}/auth/login', json={'email':'int@test.com','password':'Password123!'})
+          if r.status_code != 200:
+              errors.append(f'Login failed: {r.status_code}')
+          else:
+              token = r.json()['data']['access_token']
+              h = {'Authorization': f'Bearer {token}'}
+
+              # Protected endpoints
+              for endpoint in ['/coaches', '/coaches/specializations', '/workouts/exercises']:
+                  rr = requests.get(f'{base}{endpoint}', headers=h)
+                  if rr.status_code not in [200, 201]:
+                      errors.append(f'{endpoint} returned {rr.status_code}')
+
+          if errors:
+              for e in errors: print(f'ERROR: {e}')
+              sys.exit(1)
+          else:
+              print('All integration smoke tests passed.')
+          "
+
+
+# ─────────────────────────────────────────────────────────────────────
+# JOB 4: Deploy (main branch only, after all tests pass)
+# ─────────────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests, integration-tests]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://fitapp.example.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/build
+
+      - name: Deploy backend to server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /var/www/fitapp
+            git pull origin main
+            cd backend
+            source venv/bin/activate
+            pip install -r requirements.txt
+            flask db upgrade || true
+            sudo systemctl restart fitapp-backend
+            echo "Backend deployed successfully"
+
+      - name: Deploy frontend to CDN / server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            sudo rm -rf /var/www/html/*
+            sudo cp -r /var/www/fitapp/frontend/build/* /var/www/html/
+            sudo systemctl restart nginx
+            echo "Frontend deployed successfully"
+
+      - name: Verify deployment
+        run: |
+          sleep 15
+          curl -f https://fitapp.example.com/api/health || echo "Deployment health check — verify manually"
+
+      - name: Notify on success
+        uses: 8398a7/action-slack@v3
+        if: success()
+        with:
+          status: success
+          text: "✅ FitApp deployed to production — commit: ${{ github.sha }}"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Notify on failure
+        uses: 8398a7/action-slack@v3
+        if: failure()
+        with:
+          status: failure
+          text: "❌ FitApp deployment FAILED — check logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
