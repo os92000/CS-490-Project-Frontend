@@ -84,7 +84,7 @@ export const usersAPI = {
   getProfile: (userId) => api.get(`/users/${userId}/profile`),
   updateProfile: (userId, data) => api.put(`/users/${userId}/profile`, data),
   getAllUsers: (params) => api.get('/users', { params }),
-  deleteAccount: (userId) => api.delete(`/users/${userId}`),
+  deleteAccount: (userId, data) => api.delete(`/users/${userId}`, { data }),
 };
 
 // ============================================
