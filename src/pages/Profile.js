@@ -80,7 +80,13 @@ const Profile = () => {
 
   const deleteAccount = async () => {
     if (!window.confirm('Delete your account and all associated data? This cannot be undone.')) return;
-    try { await usersAPI.deleteAccount(user.id); await logout(); window.location.href='/login'; }
+    const password = window.prompt('Enter your current password to confirm account deletion:');
+    if (password === null) return;
+    if (!password.trim()) {
+      setError('Password is required to delete your account.');
+      return;
+    }
+    try { await usersAPI.deleteAccount(user.id, { password: password.trim() }); await logout(); window.location.href='/login'; }
     catch(err) { setError(err.response?.data?.message||'Failed to delete account.'); }
   };
 
