@@ -25,8 +25,8 @@ import AdminDashboard from './pages/AdminDashboard';
 import ClientProgress from './pages/ClientProgress';
 import TopCoachesPage from './pages/TopCoachesPage';
 import BrowseExercises from './pages/BrowseExercises';
-import FilterWorkoutPlan from './pages/FilterWorkoutPlan';
 import CustomizeWorkoutPlan from './pages/CustomizeWorkoutPlan';
+import ViewWorkoutPlan from './pages/ViewWorkoutPlan';
 import ExerciseLibrary from './pages/ExerciseLibrary';
 import ProgressPhotos from './pages/ProgressPhotos';
 import Payments from './pages/Payments';
@@ -269,19 +269,20 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/filter-workout-plans"
-          element={
-            <ProtectedRoute> 
-              <FilterWorkoutPlan />
-            </ProtectedRoute>
-          }
-        />
+        {/* Removed filter workout plans route - browsing consolidated in MyWorkouts */}
         <Route
           path="/customize-workout-plan/:planId"
           element={
             <ProtectedRoute>
               <CustomizeWorkoutPlan />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/workout-plans/:planId"
+          element={
+            <ProtectedRoute>
+              <ViewWorkoutPlan />
             </ProtectedRoute>
           }
         />

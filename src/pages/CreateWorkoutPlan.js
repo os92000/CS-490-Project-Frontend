@@ -11,9 +11,17 @@ const CreateWorkoutPlan = () => {
   const [error, setError] = useState('');
   const [planForm, setPlanForm] = useState({
     name:'', description:'', client_id:'', start_date:'', end_date:'',
-    metadata:{ goal:'', difficulty:'', plan_type:'', duration_weeks:'' },
+    metadata:{ goal:'', difficulty:'', plan_type:'' },
     days:[]
   });
+
+  const shiftDate = (dateString, days) => {
+    if (!dateString) return '';
+    const next = new Date(`${dateString}T00:00:00`);
+    if (Number.isNaN(next.getTime())) return '';
+    next.setDate(next.getDate() + days);
+    return next.toISOString().split('T')[0];
+  };
 
   useEffect(() => {
     Promise.all([coachesAPI.getMyClients(), workoutsAPI.getExercises()])
@@ -25,8 +33,28 @@ const CreateWorkoutPlan = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const setMeta = (k,v) => setPlanForm(f=>({...f,metadata:{...f.meta,...f.metadata,[k]:v}}));
-  const addDay = () => setPlanForm(f=>({...f,days:[...f.days,{name:`Day ${f.days.length+1}`,day_number:f.days.length+1,notes:'',exercises:[]}]}));
+  const setMeta = (k,v) => setPlanForm(f=>({...f,metadata:{...f.metadata,[k]:v}}));
+  const addDay = () => setPlanForm(f=>{
+    const previousDay = f.days[f.days.length - 1];
+    const defaultDate = previousDay?.scheduled_date
+      ? shiftDate(previousDay.scheduled_date, 1)
+      : (f.start_date || '');
+
+    return {
+      ...f,
+      days:[
+        ...f.days,
+        {
+          name:`Day ${f.days.length+1}`,
+          day_number:f.days.length+1,
+          scheduled_date: defaultDate,
+          repeat_weeks: 1,
+          notes:'',
+          exercises:[]
+        }
+      ]
+    };
+  });
   const removeDay = i => setPlanForm(f=>({...f,days:f.days.filter((_,j)=>j!==i)}));
   const updDay = (i,k,v) => { const d=[...planForm.days]; d[i]={...d[i],[k]:v}; setPlanForm(f=>({...f,days:d})); };
   const addEx = i => { const d=[...planForm.days]; d[i].exercises.push({exercise_id:exercises[0]?.id||'',sets:3,reps:'10',weight:'bodyweight',rest_seconds:60,notes:''}); setPlanForm(f=>({...f,days:d})); };
@@ -35,9 +63,14 @@ const CreateWorkoutPlan = () => {
 
   const handleSubmit = async e => {
     e.preventDefault(); setError(''); setSuccess('');
-    if (!planForm.client_id) { setError('Please select a client.'); return; }
     try {
-      const res = await workoutsAPI.createWorkoutPlan(planForm);
+      const payload = {
+        ...planForm,
+        goal: planForm.metadata.goal,
+        difficulty: planForm.metadata.difficulty,
+        plan_type: planForm.metadata.plan_type,
+      };
+      const res = await workoutsAPI.createWorkoutPlan(payload);
       if (res.data.success) { setSuccess('Workout plan created!'); setTimeout(() => navigate('/my-workouts'), 1800); }
     } catch(err) { setError(err.response?.data?.message || 'Failed to create plan.'); }
   };
@@ -46,7 +79,7 @@ const CreateWorkoutPlan = () => {
     setError(''); setSuccess('');
     if (!planForm.name || planForm.days.length === 0) { setError('Add a name and at least one day before saving a template.'); return; }
     try {
-      await workoutsAPI.createTemplate({ name:planForm.name, description:planForm.description, goal:planForm.metadata.goal, difficulty:planForm.metadata.difficulty, plan_type:planForm.metadata.plan_type, duration_weeks:planForm.metadata.duration_weeks, is_public:true, template_data:{days:planForm.days} });
+      await workoutsAPI.createTemplate({ name:planForm.name, description:planForm.description, goal:planForm.metadata.goal, difficulty:planForm.metadata.difficulty, plan_type:planForm.metadata.plan_type, is_public:true, template_data:{days:planForm.days} });
       setSuccess('Template submitted for admin approval.');
     } catch(err) { setError(err.response?.data?.message || 'Failed to save template.'); }
   };
@@ -76,11 +109,20 @@ const CreateWorkoutPlan = () => {
           <h2 style={{ marginBottom:18 }}>Plan details</h2>
           <div className="flex gap-12" style={{ flexWrap:'wrap' }}>
             <div className="form-group w-full">
-              <label>Client *</label>
-              <select value={planForm.client_id} onChange={e=>setPlanForm(f=>({...f,client_id:e.target.value}))} required>
-                <option value="">Select a client</option>
-                {clients.map(c=><option key={c.id} value={c.id}>{c.profile?.first_name||c.email}</option>)}
-              </select>
+              {clients && clients.length > 0 ? (
+                <>
+                  <label>Client</label>
+                  <select value={planForm.client_id} onChange={e=>setPlanForm(f=>({...f,client_id:e.target.value}))}>
+                    <option value="">Select a client (or leave blank for yourself)</option>
+                    {clients.map(c=><option key={c.id} value={c.id}>{c.profile?.first_name||c.email}</option>)}
+                  </select>
+                </>
+              ) : (
+                <>
+                  <label>Client</label>
+                  <div className="muted-text">No clients found — this plan will be created for your account.</div>
+                </>
+              )}
             </div>
           </div>
           <div className="form-group mt-12">
@@ -104,7 +146,6 @@ const CreateWorkoutPlan = () => {
               </select>
             </div>
             <div className="form-group"><label>Plan type</label><input value={planForm.metadata.plan_type} onChange={e=>setMeta('plan_type',e.target.value)} placeholder="Full body, split…"/></div>
-            <div className="form-group"><label>Duration (weeks)</label><input type="number" value={planForm.metadata.duration_weeks} onChange={e=>setMeta('duration_weeks',e.target.value)}/></div>
           </div>
         </div>
 
@@ -128,8 +169,13 @@ const CreateWorkoutPlan = () => {
               </div>
               <div className="flex gap-12 mb-12" style={{ flexWrap:'wrap' }}>
                 <div className="form-group w-full"><label>Day name</label><input value={day.name} onChange={e=>updDay(di,'name',e.target.value)} placeholder="e.g. Upper Body, Leg Day"/></div>
+                <div className="form-group"><label>Scheduled date</label><input type="date" value={day.scheduled_date || ''} onChange={e=>updDay(di,'scheduled_date',e.target.value)} /></div>
+                <div className="form-group"><label>Repeat weekly</label><input type="number" min="1" value={day.repeat_weeks || 1} onChange={e=>updDay(di,'repeat_weeks',e.target.value)} placeholder="1" /></div>
                 <div className="form-group w-full"><label>Notes</label><textarea rows={2} value={day.notes} onChange={e=>updDay(di,'notes',e.target.value)} placeholder="Instructions for this day…"/></div>
               </div>
+              <p className="muted-text" style={{ fontSize: 12, marginTop: -4, marginBottom: 12 }}>
+                Set a specific calendar date for this workout day. Repeat weekly adds the same day to later weeks on the same weekday.
+              </p>
 
               <div className="flex justify-between items-center mb-10">
                 <strong style={{ fontSize:13, color:'var(--text-2)' }}>Exercises ({day.exercises.length})</strong>

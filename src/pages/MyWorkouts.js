@@ -44,7 +44,7 @@ const ExerciseSearchRow = ({ ex, index, onUpdate, onRemove, showRemove }) => {
           style={{ width: '100%' }}
         />
         {open && results.length > 0 && (
-          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, zIndex: 200, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, zIndex: 200, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
             {results.map(r => (
               <div
                 key={r.id}
@@ -235,6 +235,16 @@ const MyWorkouts = () => {
     labelFormatter: (date) => date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
   }), [logs]);
 
+  const selectedPlanAssignmentsByDay = useMemo(() => {
+    const map = {};
+    (selectedPlan?.calendar_assignments || []).forEach((assignment) => {
+      if (!assignment?.workout_day_id) return;
+      if (!map[assignment.workout_day_id]) map[assignment.workout_day_id] = [];
+      map[assignment.workout_day_id].push(assignment);
+    });
+    return map;
+  }, [selectedPlan]);
+
   useEffect(() => {
     if (activeTab === 'plans' && selectedPlan && selectedPlanRef.current) {
       selectedPlanRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -273,23 +283,11 @@ const MyWorkouts = () => {
     Browse Exercises
   </button>
 
-  {/* ONLY show when a plan is selected */}
-  {selectedPlan && (
-    <button
-      className="btn btn-primary"
-      onClick={() =>
-        navigate(`/customize-workout-plan/${selectedPlan.id}`)
-      }
-    >
-      Customize Plan
-    </button>
-  )}
-
   <button
     className="btn btn-primary"
-    onClick={() => navigate('/filter-workout-plans')}
+    onClick={() => navigate('/create-workout-plan')}
   >
-    Browse Workout Plans
+    + Create plan
   </button>
 
   {isClient && (
@@ -458,8 +456,9 @@ const MyWorkouts = () => {
                   {plan.description && <p className="muted-text" style={{ fontSize: 13, marginBottom: 12, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{plan.description}</p>}
                   <div className="flex flex-wrap gap-6">
                     {plan.goal && <span className="badge badge-green">{plan.goal}</span>}
-                    {plan.duration_weeks && <span className="badge badge-muted">{plan.duration_weeks} weeks</span>}
                     {plan.plan_type && <span className="badge badge-teal">{plan.plan_type}</span>}
+                    {plan.start_date && <span className="badge badge-blue">{plan.start_date}</span>}
+                    {plan.end_date && <span className="badge badge-blue">{plan.end_date}</span>}
                   </div>
                 </button>
                 );
@@ -473,7 +472,22 @@ const MyWorkouts = () => {
                     <h3 style={{ marginBottom: 6 }}>{selectedPlan.title || selectedPlan.name}</h3>
                     {selectedPlan.description && <p className="muted-text" style={{ marginBottom: 8 }}>{selectedPlan.description}</p>}
                   </div>
-                  {selectedPlanLoading && <span className="muted-text">Loading plan details…</span>}
+                  <div className="flex gap-10 flex-wrap items-center">
+                    {selectedPlanLoading && <span className="muted-text">Loading plan details…</span>}
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => navigate(`/workout-plans/${selectedPlan.id}`)}>
+                      Open detailed view
+                    </button>
+                    <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate(`/customize-workout-plan/${selectedPlan.id}`)}>
+                      Customize plan
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-6" style={{ marginTop: 12 }}>
+                  {selectedPlan.goal && <span className="badge badge-green">{selectedPlan.goal}</span>}
+                  {selectedPlan.plan_type && <span className="badge badge-teal">{selectedPlan.plan_type}</span>}
+                  {selectedPlan.start_date && <span className="badge badge-blue">Starts {selectedPlan.start_date}</span>}
+                  {selectedPlan.end_date && <span className="badge badge-blue">Ends {selectedPlan.end_date}</span>}
                 </div>
 
                 {selectedPlan.days && selectedPlan.days.length > 0 ? (
@@ -482,6 +496,13 @@ const MyWorkouts = () => {
                       <div key={day.id || dayIndex} style={{ borderTop: dayIndex === 0 ? 'none' : '1px solid var(--border)', paddingTop: dayIndex === 0 ? 0 : 10, marginTop: dayIndex === 0 ? 0 : 10 }}>
                         <strong>{day.name || `Day ${day.day_number || dayIndex + 1}`}</strong>
                         {day.notes && <p className="muted-text" style={{ fontSize: 13, marginTop: 2 }}>{day.notes}</p>}
+                        {selectedPlanAssignmentsByDay[day.id] && (
+                          <div className="flex flex-wrap gap-6" style={{ marginTop: 8 }}>
+                            {selectedPlanAssignmentsByDay[day.id].map((assignment) => (
+                              <span key={assignment.id} className="badge badge-blue">{assignment.assigned_date}</span>
+                            ))}
+                          </div>
+                        )}
                         {day.exercises && day.exercises.length > 0 && (
                           <div className="flex flex-wrap gap-6" style={{ marginTop: 8 }}>
                             {day.exercises.map((ex, exIndex) => (
@@ -585,9 +606,10 @@ const MyWorkouts = () => {
                         <span className="muted-text" style={{ fontSize: 12 }}>{clientName}</span>
                       </div>
                       {plan.goal && <span className="badge badge-green">{plan.goal}</span>}
-                      {plan.duration_weeks && <span className="badge badge-muted">{plan.duration_weeks} weeks</span>}
                       {plan.plan_type && <span className="badge badge-teal">{plan.plan_type}</span>}
                       {plan.difficulty && <span className={`badge ${diffColor[plan.difficulty] || 'badge-muted'}`}>{plan.difficulty}</span>}
+                      {plan.start_date && <span className="badge badge-blue">{plan.start_date}</span>}
+                      {plan.end_date && <span className="badge badge-blue">{plan.end_date}</span>}
                     </div>
                     {clients && clients.length > 0 && (
                       <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
@@ -613,7 +635,22 @@ const MyWorkouts = () => {
                     <h3 style={{ marginBottom: 6 }}>{selectedPlan.title || selectedPlan.name}</h3>
                     {selectedPlan.description && <p className="muted-text" style={{ marginBottom: 8 }}>{selectedPlan.description}</p>}
                   </div>
-                  {selectedPlanLoading && <span className="muted-text">Loading plan details…</span>}
+                  <div className="flex gap-10 flex-wrap items-center">
+                    {selectedPlanLoading && <span className="muted-text">Loading plan details…</span>}
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => navigate(`/workout-plans/${selectedPlan.id}`)}>
+                      Open detailed view
+                    </button>
+                    <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate(`/customize-workout-plan/${selectedPlan.id}`)}>
+                      Customize plan
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-6" style={{ marginTop: 12 }}>
+                  {selectedPlan.goal && <span className="badge badge-green">{selectedPlan.goal}</span>}
+                  {selectedPlan.plan_type && <span className="badge badge-teal">{selectedPlan.plan_type}</span>}
+                  {selectedPlan.start_date && <span className="badge badge-blue">Starts {selectedPlan.start_date}</span>}
+                  {selectedPlan.end_date && <span className="badge badge-blue">Ends {selectedPlan.end_date}</span>}
                 </div>
 
                 {selectedPlan.days && selectedPlan.days.length > 0 ? (
@@ -622,6 +659,13 @@ const MyWorkouts = () => {
                       <div key={day.id || dayIndex} style={{ borderTop: dayIndex === 0 ? 'none' : '1px solid var(--border)', paddingTop: dayIndex === 0 ? 0 : 10, marginTop: dayIndex === 0 ? 0 : 10 }}>
                         <strong>{day.name || `Day ${day.day_number || dayIndex + 1}`}</strong>
                         {day.notes && <p className="muted-text" style={{ fontSize: 13, marginTop: 2 }}>{day.notes}</p>}
+                        {selectedPlanAssignmentsByDay[day.id] && (
+                          <div className="flex flex-wrap gap-6" style={{ marginTop: 8 }}>
+                            {selectedPlanAssignmentsByDay[day.id].map((assignment) => (
+                              <span key={assignment.id} className="badge badge-blue">{assignment.assigned_date}</span>
+                            ))}
+                          </div>
+                        )}
                         {day.exercises && day.exercises.length > 0 && (
                           <div className="flex flex-wrap gap-6" style={{ marginTop: 8 }}>
                             {day.exercises.map((ex, exIndex) => (
