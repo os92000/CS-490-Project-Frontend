@@ -270,10 +270,50 @@ const ClientProgress = () => {
       )}
 
       {activeTab === 'photos' && (
-        <div className="card fade-up" style={{ textAlign: 'center', padding: '60px 40px' }}>
-          <p style={{ fontSize: 40, marginBottom: 12 }}>📷</p>
-          <h3 style={{ marginBottom: 8 }}>Progress photos</h3>
-          <p className="muted-text">Client progress photos are accessible with their permission. This feature requires client-side upload.</p>
+        <div className="card fade-up">
+          <div className="section-header">
+            <div>
+              <h2>Progress photos</h2>
+              <p className="muted-text">{(data.progress_photos || []).length} uploaded photos</p>
+            </div>
+          </div>
+          {!data.progress_photos?.length ? (
+            <div style={{ textAlign: 'center', padding: '60px 40px' }}>
+              <p style={{ fontSize: 40, marginBottom: 12 }}>📷</p>
+              <h3 style={{ marginBottom: 8 }}>No progress photos yet</h3>
+              <p className="muted-text">This client has not uploaded any progress photos.</p>
+            </div>
+          ) : (
+            <div>
+              {Object.entries((data.progress_photos || []).reduce((acc, p) => {
+                const key = p.date || p.uploaded_at?.split('T')[0] || 'Unknown';
+                (acc[key] = acc[key] || []).push(p);
+                return acc;
+              }, {})).sort(([a], [b]) => b.localeCompare(a)).map(([date, photos]) => (
+                <div key={date} style={{ marginBottom: 24 }}>
+                  <div className="flex items-center gap-12" style={{ marginBottom: 10 }}>
+                    <strong style={{ fontSize: 14 }}>{date}</strong>
+                    <span className="badge badge-muted">{photos.length} photo{photos.length !== 1 ? 's' : ''}</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+                    {photos.map((photo) => (
+                      <div key={photo.id} style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                        {photo.photo_url ? (
+                          <img src={photo.photo_url} alt={photo.category || 'progress photo'} style={{ width: '100%', aspectRatio: '3/4', objectFit: 'cover', display: 'block' }} />
+                        ) : (
+                          <div style={{ aspectRatio: '3/4', display: 'grid', placeItems: 'center', background: 'var(--surface)' }}>📷</div>
+                        )}
+                        <div style={{ padding: '8px 10px', borderTop: '1px solid var(--border)' }}>
+                          <span className="badge badge-muted" style={{ fontSize: 10, textTransform: 'capitalize' }}>{photo.category || 'other'}</span>
+                          {photo.notes && <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>{photo.notes}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

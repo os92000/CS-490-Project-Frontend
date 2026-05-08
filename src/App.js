@@ -24,7 +24,6 @@ import CoachOnboarding from './pages/CoachOnboarding';
 import AdminDashboard from './pages/AdminDashboard';
 import ClientProgress from './pages/ClientProgress';
 import TopCoachesPage from './pages/TopCoachesPage';
-import BrowseExercises from './pages/BrowseExercises';
 import CustomizeWorkoutPlan from './pages/CustomizeWorkoutPlan';
 import ViewWorkoutPlan from './pages/ViewWorkoutPlan';
 import ExerciseLibrary from './pages/ExerciseLibrary';
@@ -238,20 +237,16 @@ function App() {
           }
         />
         <Route
-          path="/browse-exercises"
-          element={
-            <ProtectedRoute>
-              <BrowseExercises />
-            </ProtectedRoute>
-          }
-        />
-        <Route
           path="/exercises"
           element={
             <ProtectedRoute>
               <ExerciseLibrary />
             </ProtectedRoute>
           }
+        />
+        <Route
+          path="/browse-exercises"
+          element={<Navigate to="/exercises" replace />}
         />
         <Route
           path="/progress-photos"

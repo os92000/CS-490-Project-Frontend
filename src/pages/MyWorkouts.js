@@ -278,13 +278,6 @@ const MyWorkouts = () => {
 
   <button
     className="btn btn-primary"
-    onClick={() => navigate('/browse-exercises')}
-  >
-    Browse Exercises
-  </button>
-
-  <button
-    className="btn btn-primary"
     onClick={() => navigate('/create-workout-plan')}
   >
     + Create plan

@@ -1,13 +1,173 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { workoutsAPI } from '../services/api';
 
 const DIFFICULTIES = ['', 'beginner', 'intermediate', 'advanced'];
 const diffBadge = { beginner: 'badge-green', intermediate: 'badge-amber', advanced: 'badge-red' };
+const today = new Date().toISOString().split('T')[0];
+
+const ExerciseActionModal = ({ exercise, onClose }) => {
+  const [action, setAction] = useState(null);
+  const [logForm, setLogForm] = useState({
+    date: today,
+    duration_minutes: exercise.default_duration_minutes || '',
+    rating: 3,
+    notes: '',
+  });
+  const [planName, setPlanName] = useState(`${exercise.name} Plan`);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
+
+  const handleLog = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSubmitting(true);
+    try {
+      await workoutsAPI.createWorkoutLog({
+        library_exercise_id: exercise.id,
+        workout_name: exercise.name,
+        date: logForm.date,
+        duration_minutes: logForm.duration_minutes || null,
+        rating: logForm.rating,
+        notes: logForm.notes || null,
+      });
+      setSuccess('Activity logged!');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to log activity.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleAddToPlan = async (e) => {
+    e.preventDefault();
+    if (!planName.trim()) {
+      setError('Plan name is required.');
+      return;
+    }
+    setError('');
+    setSubmitting(true);
+    try {
+      await workoutsAPI.createWorkoutPlan({
+        name: planName.trim(),
+        days: [{
+          name: 'Day 1',
+          day_number: 1,
+          exercises: [{
+            exercise_id: exercise.id,
+            duration_minutes: exercise.default_duration_minutes || null,
+          }],
+        }],
+      });
+      setSuccess('Plan created!');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to create plan.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 16, padding: 28, maxWidth: 460, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+          <h2 style={{ margin: 0 }}>{exercise.name}</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)', fontSize: 20, lineHeight: 1, padding: '0 0 0 12px' }}>✕</button>
+        </div>
+
+        {exercise.description && <p className="muted-text" style={{ marginBottom: 12 }}>{exercise.description}</p>}
+
+        <div className="flex flex-wrap gap-6" style={{ marginBottom: 20 }}>
+          {exercise.muscle_group && <span className="badge badge-teal">{exercise.muscle_group}</span>}
+          {exercise.equipment && <span className="badge badge-muted">{exercise.equipment}</span>}
+          {exercise.difficulty && <span className="badge badge-blue">{exercise.difficulty}</span>}
+          {exercise.category && <span className="badge badge-green">{exercise.category}</span>}
+          {exercise.default_duration_minutes && <span className="badge badge-muted">{exercise.default_duration_minutes} min</span>}
+        </div>
+
+        {success ? (
+          <div>
+            <div className="success-message" style={{ marginBottom: 16 }}>{success}</div>
+            <div className="flex gap-10">
+              <button className="btn btn-ghost btn-sm" onClick={() => { setSuccess(''); setAction(null); }}>Do something else</button>
+              <button className="btn btn-primary btn-sm" onClick={onClose}>Done</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {error && <div className="error-message" style={{ marginBottom: 12 }}>{error}</div>}
+
+            {!action && (
+              <div className="flex gap-10 flex-wrap">
+                <button className="btn btn-primary" onClick={() => setAction('log')}>Log as activity</button>
+                <button className="btn btn-ghost" onClick={() => setAction('plan')}>Add to new plan</button>
+              </div>
+            )}
+
+            {action === 'log' && (
+              <form onSubmit={handleLog} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div className="flex gap-12" style={{ flexWrap: 'wrap' }}>
+                  <div className="form-group w-full">
+                    <label>Date</label>
+                    <input type="date" value={logForm.date} onChange={(e) => setLogForm((f) => ({ ...f, date: e.target.value }))} required />
+                  </div>
+                  <div className="form-group w-full">
+                    <label>Duration (minutes)</label>
+                    <input type="number" value={logForm.duration_minutes} min="1" placeholder="e.g. 30" onChange={(e) => setLogForm((f) => ({ ...f, duration_minutes: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Rating: {logForm.rating}/5</label>
+                  <div className="flex gap-8 mt-8">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button key={n} type="button" onClick={() => setLogForm((f) => ({ ...f, rating: n }))} style={{ fontSize: 24, background: 'none', border: 'none', cursor: 'pointer', color: n <= logForm.rating ? 'var(--amber)' : 'var(--border-2)', padding: 0 }}>★</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Notes</label>
+                  <textarea rows={2} value={logForm.notes} onChange={(e) => setLogForm((f) => ({ ...f, notes: e.target.value }))} placeholder="How did it go?" />
+                </div>
+                <div className="flex gap-10">
+                  <button type="submit" className="btn btn-primary btn-sm" disabled={submitting}>{submitting ? 'Logging…' : 'Log activity'}</button>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAction(null)}>Back</button>
+                </div>
+              </form>
+            )}
+
+            {action === 'plan' && (
+              <form onSubmit={handleAddToPlan} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div className="form-group">
+                  <label>Plan name</label>
+                  <input type="text" value={planName} onChange={(e) => setPlanName(e.target.value)} required />
+                </div>
+                <p className="muted-text" style={{ fontSize: 12, marginTop: -8 }}>
+                  Creates a new plan with {exercise.name} as the first exercise.
+                </p>
+                <div className="flex gap-10">
+                  <button type="submit" className="btn btn-primary btn-sm" disabled={submitting}>{submitting ? 'Creating…' : 'Create plan'}</button>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAction(null)}>Back</button>
+                </div>
+              </form>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const ExerciseLibrary = () => {
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
+  const [actionExercise, setActionExercise] = useState(null);
   const [filters, setFilters] = useState({ search: '', category: '', muscle_group: '', difficulty: '', equipment: '' });
   const [categories, setCategories] = useState([]);
   const [muscleGroups, setMuscleGroups] = useState([]);
@@ -41,8 +201,16 @@ const ExerciseLibrary = () => {
   const clearFilters = () => setFilters({ search: '', category: '', muscle_group: '', difficulty: '', equipment: '' });
   const activeFilters = Object.values(filters).filter(Boolean).length;
 
-  // Group by category
-  const byCategory = exercises.reduce((acc, ex) => {
+  const filteredExercises = useMemo(() => exercises.filter(ex => {
+    if (filters.search && !ex.name.toLowerCase().includes(filters.search.toLowerCase())) return false;
+    if (filters.category && ex.category !== filters.category) return false;
+    if (filters.muscle_group && ex.muscle_group !== filters.muscle_group) return false;
+    if (filters.difficulty && ex.difficulty !== filters.difficulty) return false;
+    if (filters.equipment && ex.equipment !== filters.equipment) return false;
+    return true;
+  }), [exercises, filters]);
+
+  const byCategory = filteredExercises.reduce((acc, ex) => {
     const cat = ex.category || 'Uncategorized';
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(ex);
@@ -91,7 +259,7 @@ const ExerciseLibrary = () => {
       <div className="two-col fade-up fade-up-2" style={{ gridTemplateColumns: selected ? '1fr 380px' : '1fr', gap: 20 }}>
         {/* EXERCISE LIST */}
         <div>
-          {loading ? <div className="loading">Loading exercises…</div> : exercises.length === 0 ? (
+          {loading ? <div className="loading">Loading exercises…</div> : filteredExercises.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '60px 40px' }}>
               <p style={{ fontSize: 40, marginBottom: 12 }}>🔍</p>
               <h3 style={{ marginBottom: 8 }}>No exercises found</h3>
@@ -99,7 +267,7 @@ const ExerciseLibrary = () => {
             </div>
           ) : (
             <>
-              <p className="muted-text" style={{ marginBottom: 14 }}>{exercises.length} exercise{exercises.length !== 1 ? 's' : ''} found</p>
+              <p className="muted-text" style={{ marginBottom: 14 }}>{filteredExercises.length} exercise{filteredExercises.length !== 1 ? 's' : ''} found</p>
               {Object.keys(byCategory).sort().map(cat => (
                 <div key={cat} style={{ marginBottom: 24 }}>
                   <h3 style={{ marginBottom: 12, color: 'var(--text-2)', fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{cat} ({byCategory[cat].length})</h3>
@@ -149,6 +317,11 @@ const ExerciseLibrary = () => {
               </div>
             )}
 
+            <div className="flex gap-10 flex-wrap" style={{ marginBottom: 16 }}>
+              <button className="btn btn-primary btn-sm" onClick={() => setActionExercise(selected)}>Log as activity</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setActionExercise(selected)}>Add to new plan</button>
+            </div>
+
             {selected.instructions && (
               <div style={{ marginBottom: 16 }}>
                 <h4 style={{ color: 'var(--text-2)', marginBottom: 8, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Instructions</h4>
@@ -176,6 +349,10 @@ const ExerciseLibrary = () => {
           </div>
         )}
       </div>
+
+      {actionExercise && (
+        <ExerciseActionModal exercise={actionExercise} onClose={() => setActionExercise(null)} />
+      )}
     </div>
   );
 };
