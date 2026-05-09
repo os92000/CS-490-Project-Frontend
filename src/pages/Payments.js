@@ -41,10 +41,31 @@ const Payments = () => {
   const processPayment = async (e) => {
     e.preventDefault(); setError(''); setSuccess(''); setPaying(true);
     try {
+      // Resolve amount from pricing selection
+      const pricingItem = pricing.find(p => p.id.toString() === (payForm.pricing_id || '').toString());
+      const amount = pricingItem ? pricingItem.price : null;
+      if (!amount) throw new Error('Please select a session type');
+
+      // Parse expiry (MM / YY or MM/YY)
+      const parts = (payForm.card_expiry||'').replace('\u00A0','').split('/').map(s=>s.trim());
+      const exp_month = parts[0] ? parseInt(parts[0],10) : null;
+      let exp_year = parts[1] ? parseInt(parts[1],10) : null;
+      if (exp_year && exp_year < 100) exp_year += 2000;
+
+      const card = {
+        number: (payForm.card_number||'').replace(/\s+/g, ''),
+        exp_month,
+        exp_year,
+        cvc: payForm.card_cvv,
+      };
+
       const res = await paymentsAPI.processPayment({
         coach_id: payForm.coach_id || myCoach?.id,
         pricing_id: payForm.pricing_id,
-        payment_method: payForm.payment_method,
+        amount,
+        currency: 'USD',
+        card,
+        package: pricingItem?.session_type,
       });
       if (res.data.success) {
         setSuccess('Payment processed successfully!');
@@ -52,7 +73,7 @@ const Payments = () => {
         loadData();
         setActiveTab('history');
       }
-    } catch (err) { setError(err.response?.data?.message || 'Payment failed. Please try again.'); }
+    } catch (err) { setError(err.response?.data?.message || err.message || 'Payment failed. Please try again.'); }
     finally { setPaying(false); }
   };
 
@@ -192,24 +213,34 @@ const Payments = () => {
                 <div className="form-group">
                   <label>Payment method</label>
                   <div className="flex gap-10 mt-8">
-                    {[['card', '💳 Card'], ['paypal', '🅿️ PayPal'], ['bank', '🏦 Bank transfer']].map(([v, l]) => (
-                      <button key={v} type="button" className={`badge-option ${payForm.payment_method === v ? 'selected' : ''}`} onClick={() => setPayForm(f => ({ ...f, payment_method: v }))}>{l}</button>
-                    ))}
+                    <button type="button" className={`badge-option selected`}>💳 Card</button>
                   </div>
                 </div>
 
-                {payForm.payment_method === 'card' && (
-                  <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
-                    <div className="form-group">
-                      <label>Card number</label>
-                      <input value={payForm.card_number} onChange={e => setPayForm(f => ({ ...f, card_number: e.target.value }))} placeholder="1234 5678 9012 3456" maxLength={19} />
-                    </div>
-                    <div className="flex gap-12">
-                      <div className="form-group w-full"><label>Expiry</label><input value={payForm.card_expiry} onChange={e => setPayForm(f => ({ ...f, card_expiry: e.target.value }))} placeholder="MM / YY" maxLength={7} /></div>
-                      <div className="form-group w-full"><label>CVV</label><input value={payForm.card_cvv} onChange={e => setPayForm(f => ({ ...f, card_cvv: e.target.value }))} placeholder="123" maxLength={4} type="password" /></div>
-                    </div>
+                <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+                  <div className="form-group">
+                    <label>Card number</label>
+                    <input value={payForm.card_number} onChange={e => setPayForm(f => ({ ...f, card_number: e.target.value }))} placeholder="1234 5678 9012 3456" maxLength={19} />
                   </div>
-                )}
+                  <div className="flex gap-12">
+                    <div className="form-group w-full">
+                      <label>Expiry</label>
+                      <input
+                        value={payForm.card_expiry}
+                        onChange={e => {
+                          let val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                          if (val.length >= 2) {
+                            val = val.slice(0, 2) + '/' + val.slice(2);
+                          }
+                          setPayForm(f => ({ ...f, card_expiry: val }));
+                        }}
+                        placeholder="MM / YY"
+                        maxLength={7}
+                      />
+                    </div>
+                    <div className="form-group w-full"><label>CVV</label><input value={payForm.card_cvv} onChange={e => setPayForm(f => ({ ...f, card_cvv: e.target.value }))} placeholder="123" maxLength={4} type="password" /></div>
+                  </div>
+                </div>
 
                 {payForm.pricing_id && (
                   <div style={{ background: 'var(--green-dim)', border: '1px solid rgba(63,185,80,0.3)', borderRadius: 12, padding: 14 }}>

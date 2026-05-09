@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { getPostAuthRoute, useAuth } from '../context/AuthContext';
 import { coachesAPI } from '../services/api';
 
 const newRow = () => ({
@@ -47,7 +47,7 @@ const CoachPricingSettings = () => {
   useEffect(() => {
     if (!user) return;
     if (!['coach', 'both'].includes(user.role)) {
-      navigate('/dashboard');
+      navigate(getPostAuthRoute(user));
       return;
     }
     load();
@@ -123,7 +123,7 @@ const CoachPricingSettings = () => {
 
   return (
     <div className="container" style={{ maxWidth: '720px', marginTop: '30px' }}>
-      <button type="button" className="btn" onClick={() => navigate('/dashboard')} style={{ marginBottom: '16px' }}>
+      <button type="button" className="btn" onClick={() => navigate(getPostAuthRoute(user))} style={{ marginBottom: '16px' }}>
         ← Back to dashboard
       </button>
 

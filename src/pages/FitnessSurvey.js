@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { surveysAPI } from '../services/api';
-import { useAuth } from '../context/AuthContext';
+import { getPostAuthRoute, useAuth } from '../context/AuthContext';
 
 const levels = [
   { v: 'beginner', label: 'Beginner', desc: 'Just starting out', icon: '🌱' },
@@ -25,7 +25,7 @@ const FitnessSurvey = () => {
     try {
       const res = await surveysAPI.createFitnessSurvey(form);
       if (res.data.success) {
-        navigate(user?.role === 'both' ? '/coach-onboarding' : '/dashboard');
+        navigate(user?.role === 'both' ? '/coach-onboarding' : getPostAuthRoute(user));
       }
       else setError(res.data.message || 'Failed to submit survey');
     } catch (err) { setError(err.response?.data?.message || 'An error occurred'); }
@@ -82,7 +82,7 @@ const FitnessSurvey = () => {
             <button type="submit" className="btn btn-primary btn-lg" disabled={isLoading} style={{ minWidth: 160 }}>
               {isLoading ? 'Saving…' : 'Start my journey →'}
             </button>
-            <button type="button" className="btn btn-ghost" onClick={() => navigate('/dashboard')} disabled={isLoading}>Skip</button>
+            <button type="button" className="btn btn-ghost" onClick={() => navigate(getPostAuthRoute(user))} disabled={isLoading}>Skip</button>
           </div>
         </form>
       </div>

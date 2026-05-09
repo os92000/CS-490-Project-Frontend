@@ -241,8 +241,10 @@ export const adminAPI = {
   getRequests: () => api.get('/admin/requests'),
   updateRequest: (requestId, data) => api.patch(`/admin/requests/${requestId}`, data),
   getPaymentAnalytics: () => api.get('/admin/payment-analytics'),
+  getPaymentAnalytics: (params) => api.get('/admin/payment-analytics', { params }),
   getTemplates: () => api.get('/admin/templates'),
   updateTemplate: (data) => api.patch('/admin/templates', data),
+  getEngagement: (params) => api.get('/admin/engagement', { params }),
 };
 
 // ============================================

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from './context/AuthContext';
+import { getPostAuthRoute, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
@@ -32,7 +32,7 @@ import Payments from './pages/Payments';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireAuth = true, redirectTo = '/login' }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
 
   if (loading) {
     return <div className="loading">Loading...</div>;
@@ -43,10 +43,20 @@ const ProtectedRoute = ({ children, requireAuth = true, redirectTo = '/login' })
   }
 
   if (!requireAuth && isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={getPostAuthRoute(user)} replace />;
   }
 
   return children;
+};
+
+const DashboardGate = () => {
+  const { user } = useAuth();
+
+  if (user?.role === 'admin') {
+    return <Navigate to="/admin" replace />;
+  }
+
+  return <Dashboard />;
 };
 
 function App() {
@@ -110,7 +120,7 @@ function App() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <DashboardGate />
             </ProtectedRoute>
           }
         />

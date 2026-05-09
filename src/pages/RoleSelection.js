@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { getPostAuthRoute, useAuth } from '../context/AuthContext';
 import { usersAPI } from '../services/api';
 
 const roles = [
@@ -61,7 +61,7 @@ const RoleSelection = () => {
           <button className="btn btn-primary btn-lg" onClick={handleSubmit} disabled={!selectedRole || isLoading} style={{ minWidth: 160 }}>
             {isLoading ? 'Saving…' : 'Continue →'}
           </button>
-          <button className="btn btn-ghost" onClick={() => navigate('/dashboard')} disabled={isLoading}>Skip for now</button>
+          <button className="btn btn-ghost" onClick={() => navigate(getPostAuthRoute(user))} disabled={isLoading}>Skip for now</button>
         </div>
       </div>
     </div>

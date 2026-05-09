@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { getPostAuthRoute, useAuth } from '../context/AuthContext';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -21,7 +21,7 @@ const Login = () => {
     try {
       const result = await login(formData.email, formData.password);
       if (result.success) {
-        navigate(!result.user.role || result.user.role === 'none' ? '/role-selection' : '/dashboard');
+        navigate(getPostAuthRoute(result.user));
       } else {
         setLocalError(result.error || 'Login failed');
       }

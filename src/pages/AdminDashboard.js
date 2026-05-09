@@ -3,6 +3,19 @@ import { adminAPI } from '../services/api';
 import Avatar from '../components/Avatar';
 import FitChart, { barDataset, doughnutDataset } from '../components/FitChart';
 
+const PAYMENTS_PAGE_SIZE = 10;
+
+const PaginationControls = ({ page, totalPages, onPrev, onNext }) => {
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex justify-between items-center" style={{ marginTop: 12 }}>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={onPrev} disabled={page === 1}>← Prev</button>
+      <span className="muted-text" style={{ fontSize: 12 }}>Page {page} of {totalPages}</span>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={onNext} disabled={page === totalPages}>Next →</button>
+    </div>
+  );
+};
+
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
@@ -11,6 +24,10 @@ const AdminDashboard = () => {
   const [exercises, setExercises] = useState([]);
   const [requests, setRequests] = useState([]);
   const [paymentAnalytics, setPaymentAnalytics] = useState(null);
+  const [paymentFilters, setPaymentFilters] = useState({ start_date: '', end_date: '', coach_id: '' });
+  const [paymentPage, setPaymentPage] = useState(1);
+  const [engagementFilters, setEngagementFilters] = useState({ period: 'day', count: 30 });
+  const [engagementData, setEngagementData] = useState(null);
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -19,6 +36,7 @@ const AdminDashboard = () => {
   const [exerciseForm, setExerciseForm] = useState({ name:'', description:'', category:'', muscle_group:'', equipment:'', difficulty:'', instructions:'', is_public:true });
 
   useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadEngagement(); }, []);
 
   const loadData = async () => {
     try {
@@ -26,7 +44,7 @@ const AdminDashboard = () => {
       const [sr,ur,ar,rr,er,req,pr,tr] = await Promise.all([
         adminAPI.getStats(), adminAPI.getUsers(), adminAPI.getCoachApplications(),
         adminAPI.getReports(), adminAPI.getExercises(), adminAPI.getRequests(),
-        adminAPI.getPaymentAnalytics(), adminAPI.getTemplates(),
+        adminAPI.getPaymentAnalytics(paymentFilters), adminAPI.getTemplates(),
       ]);
       if (sr.data.success) setStats(sr.data.data);
       if (ur.data.success) setUsers(ur.data.data.users);
@@ -38,6 +56,16 @@ const AdminDashboard = () => {
       if (tr.data.success) setTemplates(tr.data.data.templates);
     } catch { setError('Failed to load admin data.'); }
     finally { setLoading(false); }
+  };
+
+  const loadEngagement = async (filters = engagementFilters) => {
+    try {
+      setLoading(true);
+      const res = await adminAPI.getEngagement(filters);
+      if (res.data.success) setEngagementData(res.data.data);
+    } catch (e) {
+      // ignore for now
+    } finally { setLoading(false); }
   };
 
   const act = (fn) => () => { setError(''); setSuccess(''); fn().then(() => { setSuccess('Done.'); loadData(); }).catch(err => setError(err.response?.data?.message || 'Action failed.')); };
@@ -240,11 +268,43 @@ const AdminDashboard = () => {
           <div className="two-col fade-up">
             <div className="card">
               <div className="section-header"><div><h2>Revenue over time</h2><p className="muted-text">Last 8 weeks</p></div></div>
-              <FitChart type="bar" labels={['Wk1','Wk2','Wk3','Wk4','Wk5','Wk6','Wk7','Wk8']} datasets={[barDataset('Revenue', [1200,1850,1400,2200,1900,2400,2800,2600], '#3fb950')]} height={200} />
+                  <FitChart type="bar" labels={[ 'Wk1','Wk2','Wk3','Wk4','Wk5','Wk6','Wk7','Wk8']} datasets={[barDataset('Revenue', [1200,1850,1400,2200,1900,2400,2800,2600], '#3fb950')]} height={200} />
             </div>
             <div className="card">
               <div className="section-header"><div><h2>User signups</h2><p className="muted-text">Last 8 weeks</p></div></div>
               <FitChart type="bar" labels={['Wk1','Wk2','Wk3','Wk4','Wk5','Wk6','Wk7','Wk8']} datasets={[barDataset('Signups', [28,42,35,61,48,55,72,68], '#58a6ff')]} height={200} />
+            </div>
+          </div>
+          <div className="card fade-up">
+            <div className="section-header"><div><h2>Payment Filters</h2><p className="muted-text">Filter payment analytics by date range or coach</p></div></div>
+            <div style={{display:'flex',gap:12,alignItems:'center'}}>
+              <input type="date" value={paymentFilters.start_date} onChange={e=>setPaymentFilters(f=>({...f,start_date:e.target.value}))} />
+              <input type="date" value={paymentFilters.end_date} onChange={e=>setPaymentFilters(f=>({...f,end_date:e.target.value}))} />
+              <select value={paymentFilters.coach_id} onChange={e=>setPaymentFilters(f=>({...f,coach_id:e.target.value}))}>
+                <option value="">All coaches</option>
+                {users.filter(u=>u.role==='coach'||u.role==='both').map(c=> <option key={c.id} value={c.id}>{c.profile?.first_name || c.email}</option>)}
+              </select>
+              <button className="btn btn-primary btn-sm" onClick={async()=>{ setPaymentPage(1); setLoading(true); try{ const res=await adminAPI.getPaymentAnalytics(paymentFilters); if(res.data.success) setPaymentAnalytics(res.data.data); }catch(e){} finally{ setLoading(false); } }}>Apply</button>
+            </div>
+          </div>
+          <div className="card fade-up">
+            <div className="section-header"><div><h2>Engagement</h2><p className="muted-text">DAU / WAU / MAU and timeseries</p></div></div>
+            <div style={{display:'flex',gap:12,alignItems:'center',marginBottom:12}}>
+              <select value={engagementFilters.period} onChange={e=>setEngagementFilters(f=>({...f,period:e.target.value}))}>
+                <option value="day">Daily</option>
+                <option value="week">Weekly</option>
+                <option value="month">Monthly</option>
+              </select>
+              <input type="number" value={engagementFilters.count} onChange={e=>setEngagementFilters(f=>({...f,count:parseInt(e.target.value||0)}))} style={{width:90}} />
+              <button className="btn btn-primary btn-sm" onClick={()=>loadEngagement(engagementFilters)}>Apply</button>
+              <div style={{marginLeft:'auto'}}>
+                <strong style={{marginRight:12}}>DAU:</strong>{engagementData?.dau||0} &nbsp; <strong>WAU:</strong>{engagementData?.wau||0} &nbsp; <strong>MAU:</strong>{engagementData?.mau||0}
+              </div>
+            </div>
+            <div>
+              {engagementData ? (
+                <FitChart type="bar" labels={engagementData.labels} datasets={[barDataset('Active users', engagementData.values || [], '#3fb950')]} height={200} />
+              ) : <p className="muted-text">No engagement data yet.</p>}
             </div>
           </div>
           <div className="two-col fade-up">
@@ -266,12 +326,38 @@ const AdminDashboard = () => {
             </div>
             <div className="card">
               <div className="section-header"><div><h2>Recent payments</h2></div></div>
-              {paymentAnalytics?.payments?.length ? paymentAnalytics.payments.map(p => (
-                <div key={p.id} className="list-row">
-                  <div><strong style={{fontSize:14}}>{p.payment_reference}</strong><p className="muted-text" style={{fontSize:12}}>{p.currency} {p.amount}</p></div>
-                  <span className={`badge ${statusBadge[p.status]||'badge-muted'}`}>{p.status}</span>
-                </div>
-              )) : <p className="muted-text">No payment data yet.</p>}
+              {paymentAnalytics?.payments?.length ? (() => {
+                const totalPayments = paymentAnalytics.payment_count || paymentAnalytics.payments.length;
+                const totalPages = Math.ceil(totalPayments / PAYMENTS_PAGE_SIZE);
+                const start = (paymentPage - 1) * PAYMENTS_PAGE_SIZE;
+                const end = start + PAYMENTS_PAGE_SIZE;
+                const paginatedPayments = paymentAnalytics.payments.slice(start, end);
+                
+                return (
+                  <>
+                    {paginatedPayments.map(p => (
+                      <div key={p.id} className="list-row">
+                        <div>
+                          <strong style={{fontSize:14}}>{p.payment_reference}</strong>
+                          <p className="muted-text" style={{fontSize:12}}>
+                            {p.coach?.profile?.first_name || p.coach?.email || 'Unknown'} · {p.session_type || 'Session'} · {p.paid_at ? new Date(p.paid_at).toLocaleDateString() : 'N/A'}
+                          </p>
+                        </div>
+                        <div style={{display:'flex',alignItems:'center',gap:8}}>
+                          <span style={{fontSize:14,fontWeight:700,color:'var(--green)'}}>${p.amount}</span>
+                          <span className={`badge ${statusBadge[p.status]||'badge-muted'}`}>{p.status}</span>
+                        </div>
+                      </div>
+                    ))}
+                    <PaginationControls 
+                      page={paymentPage} 
+                      totalPages={totalPages} 
+                      onPrev={() => setPaymentPage(p => Math.max(1, p - 1))}
+                      onNext={() => setPaymentPage(p => Math.min(totalPages, p + 1))}
+                    />
+                  </>
+                );
+              })() : <p className="muted-text">No payment data yet.</p>}
             </div>
           </div>
         </div>

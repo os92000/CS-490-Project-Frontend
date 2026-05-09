@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { getPostAuthRoute, useAuth } from '../context/AuthContext';
 import Avatar from './Avatar';
 
 const Navbar = () => {
@@ -32,6 +32,7 @@ const Navbar = () => {
   const isClient = hasRole(['client', 'both']);
   const isCoach = hasRole(['coach', 'both']);
   const isAdmin = user?.role === 'admin';
+  const homeRoute = getPostAuthRoute(user);
 
   useEffect(() => {
     const onOutside = (e) => {
@@ -54,7 +55,7 @@ const Navbar = () => {
   }, []);
 
   const primaryLinks = useMemo(() => {
-    const links = [{ to: '/dashboard', label: 'Dashboard' }];
+    const links = [{ to: homeRoute, label: isAdmin ? 'Admin' : 'Dashboard' }];
     if (isClient) {
       links.push(
         { to: '/coaches', label: 'Coaches' },
@@ -68,11 +69,8 @@ const Navbar = () => {
     if (isClient || isCoach) {
       links.push({ to: '/chat', label: 'Chat' });
     }
-    if (isAdmin) {
-      links.push({ to: '/admin', label: 'Admin' });
-    }
     return links;
-  }, [isClient, isCoach, isAdmin]);
+  }, [homeRoute, isAdmin, isClient, isCoach]);
 
   const moreLinks = useMemo(() => {
     const links = [];
@@ -110,7 +108,7 @@ const Navbar = () => {
   return (
     <nav>
       <div className="container">
-        <NavLink to="/dashboard" className="logo">FitApp</NavLink>
+        <NavLink to={homeRoute} className="logo">FitApp</NavLink>
 
         <ul className="nav-links">
           {primaryLinks.map((l) => (

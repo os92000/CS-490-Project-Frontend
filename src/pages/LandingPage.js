@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { getPostAuthRoute, useAuth } from '../context/AuthContext';
 import { coachesAPI, workoutsAPI } from '../services/api';
 
 const displayName = (c) =>
@@ -67,7 +67,7 @@ const DIFFICULTY_LEVELS = [
 ];
 
 const LandingPage = () => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   const [topCoaches, setTopCoaches] = useState([]);
   const [coachesLoading, setCoachesLoading] = useState(true);
   const [exerciseLoading, setExerciseLoading] = useState(true);
@@ -152,7 +152,7 @@ const LandingPage = () => {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={getPostAuthRoute(user)} replace />;
   }
 
   return (

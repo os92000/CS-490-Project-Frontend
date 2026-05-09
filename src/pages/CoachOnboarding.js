@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getPostAuthRoute, useAuth } from '../context/AuthContext';
 import { coachesAPI } from '../services/api';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -8,6 +9,7 @@ const emptyAvailabilitySlot = () => ({ day_of_week: 0, start_time: '09:00', end_
 const emptyPricingItem = () => ({ session_type: '', price: '', currency: 'USD' });
 
 const CoachOnboarding = () => {
+  const { user } = useAuth();
   const [specializations, setSpecializations] = useState([]);
   const [form, setForm] = useState({
     experience_years: '',
@@ -213,7 +215,7 @@ const CoachOnboarding = () => {
       }
 
       setMessage('Coach application submitted successfully.');
-      navigate('/dashboard');
+      navigate(getPostAuthRoute(user));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to complete coach onboarding.');
     } finally {

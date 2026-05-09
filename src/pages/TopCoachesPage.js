@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { getPostAuthRoute, useAuth } from '../context/AuthContext';
 import { coachesAPI } from '../services/api';
 
 const TopCoachesPage = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const [coaches, setCoaches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -61,8 +61,8 @@ const TopCoachesPage = () => {
               Top coaches
             </Link>
             {isAuthenticated ? (
-              <button type="button" className="btn btn-primary" onClick={() => navigate('/dashboard')}>
-                Dashboard
+              <button type="button" className="btn btn-primary" onClick={() => navigate(getPostAuthRoute(user))}>
+                {user?.role === 'admin' ? 'Admin' : 'Dashboard'}
               </button>
             ) : (
               <>

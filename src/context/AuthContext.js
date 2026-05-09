@@ -3,6 +3,18 @@ import { authAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
+export const getPostAuthRoute = (user) => {
+  if (user?.role === 'admin') {
+    return '/admin';
+  }
+
+  if (!user?.role || user.role === 'none') {
+    return '/role-selection';
+  }
+
+  return '/dashboard';
+};
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
