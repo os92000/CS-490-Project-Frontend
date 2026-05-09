@@ -282,14 +282,29 @@ const Payments = () => {
         <div className="card fade-up">
           <h2 style={{ marginBottom: 16 }}>Earnings breakdown</h2>
           <div className="stats-grid" style={{ marginBottom: 24 }}>
-            {['January','February','March','April'].map(m => (
-              <div key={m} className="stat-card">
-                <span className="stat-label">{m}</span>
-                <span className="stat-value" style={{ fontSize: 18, color: 'var(--green)' }}>
-                  ${history.filter(p => p.paid_at?.includes(m.slice(0,3))).reduce((s,p)=>s+parseFloat(p.amount||0),0).toFixed(0)}
-                </span>
-              </div>
-            ))}
+            {(() => {
+              // build last 4 month labels and compute sums by parsing paid_at as ISO
+              const months = [];
+              const now = new Date();
+              for (let i = 3; i >= 0; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                months.push({ label: d.toLocaleString(undefined, { month: 'long' }), year: d.getFullYear(), month: d.getMonth() });
+              }
+              return months.map(m => {
+                const sum = history.reduce((s, p) => {
+                  if (!p.paid_at) return s;
+                  const dt = new Date(p.paid_at);
+                  if (isNaN(dt)) return s;
+                  return s + (dt.getFullYear() === m.year && dt.getMonth() === m.month ? parseFloat(p.amount || 0) : 0);
+                }, 0);
+                return (
+                  <div key={`${m.label}-${m.year}`} className="stat-card">
+                    <span className="stat-label">{m.label}</span>
+                    <span className="stat-value" style={{ fontSize: 18, color: 'var(--green)' }}>${sum.toFixed(0)}</span>
+                  </div>
+                );
+              });
+            })()}
           </div>
           <p className="muted-text">Earnings per session type:</p>
           {pricing.map(p => (
