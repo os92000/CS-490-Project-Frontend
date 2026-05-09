@@ -133,3 +133,39 @@ jobs:
           print(f"Results: {len(passed)} passed, {len(skipped)} skipped (backend required)")
           print('='*50)
           PYEOF
+
+  deploy:
+    name: Deploy frontend to test server
+    needs: selenium-tests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: self-hosted
+    concurrency:
+      group: deploy-frontend
+      cancel-in-progress: false
+
+    steps:
+      - name: Pull latest frontend code
+        run: |
+          cd ~/fitness-app/CS-490-Project-Frontend
+          git fetch --all
+          git reset --hard origin/main
+
+      - name: Rebuild and restart frontend container
+        run: |
+          cd ~/fitness-app
+          docker compose --profile test up -d --build frontend
+
+      - name: Health check
+        run: |
+          cd ~/fitness-app
+          for i in $(seq 1 20); do
+            if docker compose --profile test exec -T frontend \
+                 wget --quiet --spider http://localhost:80/; then
+              exit 0
+            fi
+            echo "Health check attempt $i failed; retrying in 3s..."
+            sleep 3
+          done
+          echo "Health check failed after 20 attempts. Recent frontend logs:"
+          docker compose --profile test logs --tail=100 frontend
+          exit 1
