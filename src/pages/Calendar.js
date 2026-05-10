@@ -330,7 +330,7 @@ const Calendar = () => {
                   </div>
 
                   {/* Event pills (max 2 visible, +N indicator) */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: '100%', minWidth: 0 }}>
                     {dayScheduled.slice(0, 2).map(s => (
                       <span
                         key={`s-${s.id}`}
@@ -342,10 +342,10 @@ const Calendar = () => {
                           background: 'rgba(57,208,180,0.18)',
                           color: 'var(--teal)',
                           border: '1px solid rgba(57,208,180,0.3)',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
+                          wordBreak: 'break-word',
+                          overflowWrap: 'break-word',
                           fontWeight: 500,
+                          minWidth: 0,
                         }}
                       >
                         💪 {s.plan_name}{s.day_name ? ` — ${s.day_name}` : ''}
@@ -362,10 +362,10 @@ const Calendar = () => {
                           background: 'rgba(63,185,80,0.15)',
                           color: 'var(--green)',
                           border: '1px solid rgba(63,185,80,0.3)',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
+                          wordBreak: 'break-word',
+                          overflowWrap: 'break-word',
                           fontWeight: 500,
+                          minWidth: 0,
                         }}
                       >
                         ✅ {l.workout_name || 'Session'}
@@ -382,10 +382,10 @@ const Calendar = () => {
                           background: 'rgba(155,135,245,0.15)',
                           color: '#9b87f5',
                           border: '1px solid rgba(155,135,245,0.3)',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
+                          wordBreak: 'break-word',
+                          overflowWrap: 'break-word',
                           fontWeight: 500,
+                          minWidth: 0,
                         }}
                       >
                         📝 {n.note.substring(0, 20)}{n.note.length > 20 ? '…' : ''}

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { getPostAuthRoute, useAuth } from '../context/AuthContext';
 import Avatar from './Avatar';
@@ -8,8 +8,13 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const menuRef = useRef(null);
+  const containerRef = useRef(null);
+  const linksRef = useRef(null);
+  const logoRef = useRef(null);
+  const userRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isCompactNav, setIsCompactNav] = useState(window.innerWidth < 1380);
+  const [isCompactNav, setIsCompactNav] = useState(false);
+  const [visibleMoreCount, setVisibleMoreCount] = useState(0);
   const navCls = ({ isActive }) => isActive ? 'active' : '';
 
   const handleLogout = async () => {
@@ -49,10 +54,13 @@ const Navbar = () => {
   }, [location.pathname]);
 
   useEffect(() => {
-    const onResize = () => setIsCompactNav(window.innerWidth < 1380);
+    const onResize = () => setIsCompactNav(window.innerWidth < 700);
     window.addEventListener('resize', onResize);
+    onResize();
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  
 
   const primaryLinks = useMemo(() => {
     const links = [{ to: homeRoute, label: isAdmin ? 'Admin' : 'Dashboard' }];
@@ -107,38 +115,44 @@ const Navbar = () => {
 
   return (
     <nav>
-      <div className="container">
-        <NavLink to={homeRoute} className="logo">FitApp</NavLink>
+      <div className="container" ref={containerRef}>
+        <NavLink to={homeRoute} className="logo" ref={logoRef}>FitApp</NavLink>
 
-        <ul className="nav-links">
+        <ul className="nav-links" ref={linksRef}>
           {primaryLinks.map((l) => (
             <li key={l.to}><NavLink to={l.to} className={navCls}>{l.label}</NavLink></li>
           ))}
 
-          {isCompactNav ? (
-            <li ref={menuRef} style={{ position: 'relative' }}>
-              <button
-                type="button"
-                className={`nav-menu-btn ${moreActive ? 'active' : ''}`}
-                onClick={() => setMenuOpen((open) => !open)}
-                aria-expanded={menuOpen}
-              >
-                More
-                <span style={{ fontSize: 10, marginLeft: 5 }}>▾</span>
-              </button>
-              {menuOpen && (
-                <div className="nav-dropdown-menu">
-                  {moreLinks.map((l) => (
-                    <NavLink key={l.to} to={l.to} className={navCls}>{l.label}</NavLink>
-                  ))}
-                </div>
-              )}
-            </li>
-          ) : (
-            moreLinks.map((l) => (
-              <li key={l.to}><NavLink to={l.to} className={navCls}>{l.label}</NavLink></li>
-            ))
-          )}
+          {/* inline visible more links (computed by measure) */}
+          {moreLinks.slice(0, visibleMoreCount).map((l) => (
+            <li key={l.to}><NavLink to={l.to} className={navCls}>{l.label}</NavLink></li>
+          ))}
+
+          {/* overflow: remaining links go into the More dropdown */}
+          {(() => {
+            const overflow = isCompactNav ? moreLinks : moreLinks.slice(visibleMoreCount);
+            if (!overflow || overflow.length === 0) return null;
+            return (
+              <li ref={menuRef} style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  className={`nav-menu-btn ${moreActive ? 'active' : ''}`}
+                  onClick={() => setMenuOpen((open) => !open)}
+                  aria-expanded={menuOpen}
+                >
+                  More
+                  <span style={{ fontSize: 10, marginLeft: 5 }}>▾</span>
+                </button>
+                {menuOpen && (
+                  <div className="nav-dropdown-menu">
+                    {overflow.map((l) => (
+                      <NavLink key={l.to} to={l.to} className={navCls}>{l.label}</NavLink>
+                    ))}
+                  </div>
+                )}
+              </li>
+            );
+          })()}
         </ul>
 
         {user && (
@@ -149,7 +163,7 @@ const Navbar = () => {
                 name={displayName}
                 size={26}
               />
-              <span style={{ maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ maxWidth: 70, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {shortName}
               </span>
               {roleLabel && (
