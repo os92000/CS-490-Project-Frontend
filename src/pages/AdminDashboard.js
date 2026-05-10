@@ -34,9 +34,12 @@ const AdminDashboard = () => {
   const [success, setSuccess] = useState('');
   const [activeTab, setActiveTab] = useState('users');
   const [exerciseForm, setExerciseForm] = useState({ name:'', description:'', category:'', muscle_group:'', equipment:'', difficulty:'', instructions:'', is_public:true });
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [revenueData, setRevenueData] = useState(null);
+  const [signupData, setSignupData] = useState(null);
 
   useEffect(() => { loadData(); }, []);
-  useEffect(() => { loadEngagement(); }, []);
+  useEffect(() => { loadEngagement(); }, [engagementFilters]);
 
   const loadData = async () => {
     try {
@@ -52,10 +55,75 @@ const AdminDashboard = () => {
       if (rr.data.success) setReports(rr.data.data.reports);
       if (er.data.success) setExercises(er.data.data.exercises);
       if (req.data.success) setRequests(req.data.data.requests);
-      if (pr.data.success) setPaymentAnalytics(pr.data.data);
+      if (pr.data.success) {
+        setPaymentAnalytics(pr.data.data);
+        // Calculate weekly revenue from payments
+        const weeklyRevenue = calculateWeeklyRevenue(pr.data.data.payments || []);
+        setRevenueData(weeklyRevenue);
+      }
       if (tr.data.success) setTemplates(tr.data.data.templates);
+      
+      // Calculate weekly signups from users
+      if (ur.data.success) {
+        const weeklySignups = calculateWeeklySignups(ur.data.data.users || []);
+        setSignupData(weeklySignups);
+      }
     } catch { setError('Failed to load admin data.'); }
     finally { setLoading(false); }
+  };
+
+  const calculateWeeklyRevenue = (payments) => {
+    const today = new Date();
+    const weeks = [];
+    const revenues = [];
+    
+    for (let i = 7; i >= 0; i--) {
+      const weekEnd = new Date(today);
+      weekEnd.setDate(weekEnd.getDate() - i * 7);
+      const weekStart = new Date(weekEnd);
+      weekStart.setDate(weekStart.getDate() - 6);
+      
+      const weekLabel = `${weekStart.toLocaleDateString('en-US', {month:'short',day:'numeric'})} - ${weekEnd.toLocaleDateString('en-US', {month:'short',day:'numeric'})}`;
+      weeks.push(weekLabel);
+      
+      const weekRevenue = payments
+        .filter(p => {
+          const pDate = new Date(p.paid_at || p.created_at);
+          return pDate >= weekStart && pDate <= weekEnd && p.status === 'completed';
+        })
+        .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+      
+      revenues.push(Math.round(weekRevenue * 100) / 100);
+    }
+    
+    return { labels: weeks, values: revenues };
+  };
+
+  const calculateWeeklySignups = (users) => {
+    const today = new Date();
+    const weeks = [];
+    const signups = [];
+    
+    for (let i = 7; i >= 0; i--) {
+      const weekEnd = new Date(today);
+      weekEnd.setDate(weekEnd.getDate() - i * 7);
+      const weekStart = new Date(weekEnd);
+      weekStart.setDate(weekStart.getDate() - 6);
+      
+      const weekLabel = `${weekStart.toLocaleDateString('en-US', {month:'short',day:'numeric'})} - ${weekEnd.toLocaleDateString('en-US', {month:'short',day:'numeric'})}`;
+      weeks.push(weekLabel);
+      
+      const weekCount = users
+        .filter(u => {
+          const uDate = new Date(u.created_at);
+          return uDate >= weekStart && uDate <= weekEnd;
+        })
+        .length;
+      
+      signups.push(weekCount);
+    }
+    
+    return { labels: weeks, values: signups };
   };
 
   const loadEngagement = async (filters = engagementFilters) => {
@@ -103,9 +171,9 @@ const AdminDashboard = () => {
         <div className="stats-grid fade-up fade-up-1">
           {[
             { label:'Total users', value: stats.total_users || 0, color:'var(--text)' },
+            { label:'Active coaches', value: stats.total_coaches || 0, color:'var(--blue)' },
             { label:'Pending applications', value: stats.pending_coach_applications || 0, color:'var(--amber)' },
             { label:'Open reports', value: stats.open_reports || 0, color:'var(--red)' },
-            { label:'Total revenue', value: `$${stats.total_revenue || 0}`, color:'var(--green)' },
           ].map(s => (
             <div key={s.label} className="stat-card">
               <span className="stat-label">{s.label}</span>
@@ -186,20 +254,90 @@ const AdminDashboard = () => {
           <div className="section-header"><div><h2>Moderation reports</h2><p className="muted-text">User-submitted reports requiring review</p></div></div>
           {reports.length === 0 ? <p className="muted-text">No reports at this time.</p> : reports.map(r => (
             <div key={r.id} className="list-row">
-              <div>
-                <div className="flex items-center gap-8 mb-4">
+              <div style={{flex:1,minWidth:0}}>
+                <div className="flex items-center gap-8 mb-6">
                   <span className={`badge ${statusBadge[r.status]||'badge-muted'}`}>{r.status}</span>
-                  <strong style={{fontSize:14}}>{r.report_type} · {r.reason}</strong>
+                  <strong style={{fontSize:14,textTransform:'capitalize'}}>{r.report_type}</strong>
+                  <span className="muted-text" style={{fontSize:12}}>·</span>
+                  <span style={{fontSize:13,color:'var(--text)'}}>{r.reason}</span>
                 </div>
-                <p className="muted-text" style={{fontSize:13}}>{r.details||'No additional details'}</p>
+                <div className="flex items-center gap-20 flex-wrap" style={{fontSize:12}}>
+                  <div className="flex items-center gap-8" style={{minWidth:0}}>
+                    <span className="muted-text" style={{whiteSpace:'nowrap'}}>Reported by:</span>
+                    <Avatar src={r.reporter?.profile?.profile_picture} name={r.reporter?.profile?.first_name || r.reporter?.email} size={24} />
+                    <span style={{color:'var(--text)',minWidth:0,overflow:'hidden',textOverflow:'ellipsis'}}>{r.reporter?.profile?.first_name ? `${r.reporter.profile.first_name} ${r.reporter.profile.last_name||''}`.trim() : r.reporter?.email}</span>
+                  </div>
+                  <span className="muted-text">→</span>
+                  <div className="flex items-center gap-8" style={{minWidth:0}}>
+                    <span className="muted-text" style={{whiteSpace:'nowrap'}}>Reported user:</span>
+                    <Avatar src={r.reported_user?.profile?.profile_picture} name={r.reported_user?.profile?.first_name || r.reported_user?.email} size={24} />
+                    <span style={{color:'var(--text)',minWidth:0,overflow:'hidden',textOverflow:'ellipsis'}}>{r.reported_user?.profile?.first_name ? `${r.reported_user.profile.first_name} ${r.reported_user.profile.last_name||''}`.trim() : r.reported_user?.email}</span>
+                  </div>
+                </div>
               </div>
               <div className="list-row-actions">
-                <button className="btn btn-secondary btn-sm" onClick={act(()=>adminAPI.updateReport(r.id,{status:'reviewed'}))}>Review</button>
-                <button className="btn btn-primary btn-sm" onClick={act(()=>adminAPI.updateReport(r.id,{status:'resolved'}))}>Resolve</button>
-                <button className="btn btn-ghost btn-sm" onClick={act(()=>adminAPI.updateReport(r.id,{status:'dismissed'}))}>Dismiss</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => setSelectedReport(r)}>Review</button>
+                <button className="btn btn-primary btn-sm" onClick={act(()=>adminAPI.updateReport(r.id,{status:'resolved'}))} disabled={r.status === 'resolved' || r.status === 'dismissed'}>Resolve</button>
+                <button className="btn btn-ghost btn-sm" onClick={act(()=>adminAPI.updateReport(r.id,{status:'dismissed'}))} disabled={r.status === 'resolved' || r.status === 'dismissed'}>Dismiss</button>
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* REPORT DETAIL MODAL */}
+      {selectedReport && (
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.6)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+          <div className="card" style={{width:'90%',maxWidth:600,maxHeight:'80vh',overflow:'auto'}}>
+            <div className="flex items-center justify-between mb-16">
+              <h2>Report details</h2>
+              <button className="btn btn-ghost btn-sm" onClick={() => setSelectedReport(null)}>✕</button>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:14}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+                <div>
+                  <strong style={{fontSize:12,color:'var(--text-2)',textTransform:'uppercase',letterSpacing:0.5}}>Reported by</strong>
+                  <div className="flex items-center gap-8 mt-8" style={{padding:10,background:'var(--bg-secondary)',borderRadius:6}}>
+                    <Avatar src={selectedReport.reporter?.profile?.profile_picture} name={selectedReport.reporter?.profile?.first_name || selectedReport.reporter?.email} size={32} />
+                    <div style={{minWidth:0,flex:1}}>
+                      <p style={{fontSize:13,fontWeight:500}}>{selectedReport.reporter?.profile?.first_name ? `${selectedReport.reporter.profile.first_name} ${selectedReport.reporter.profile.last_name||''}`.trim() : selectedReport.reporter?.email}</p>
+                      <p style={{fontSize:11,color:'var(--text-2)'}}>{selectedReport.reporter?.email}</p>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <strong style={{fontSize:12,color:'var(--text-2)',textTransform:'uppercase',letterSpacing:0.5}}>Reported user</strong>
+                  <div className="flex items-center gap-8 mt-8" style={{padding:10,background:'var(--bg-secondary)',borderRadius:6}}>
+                    <Avatar src={selectedReport.reported_user?.profile?.profile_picture} name={selectedReport.reported_user?.profile?.first_name || selectedReport.reported_user?.email} size={32} />
+                    <div style={{minWidth:0,flex:1}}>
+                      <p style={{fontSize:13,fontWeight:500}}>{selectedReport.reported_user?.profile?.first_name ? `${selectedReport.reported_user.profile.first_name} ${selectedReport.reported_user.profile.last_name||''}`.trim() : selectedReport.reported_user?.email}</p>
+                      <p style={{fontSize:11,color:'var(--text-2)'}}>{selectedReport.reported_user?.email}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <strong style={{fontSize:12,color:'var(--text-2)',textTransform:'uppercase',letterSpacing:0.5}}>Type</strong>
+                <p style={{fontSize:14,marginTop:6,textTransform:'capitalize'}}>{selectedReport.report_type}</p>
+              </div>
+              <div>
+                <strong style={{fontSize:12,color:'var(--text-2)',textTransform:'uppercase',letterSpacing:0.5}}>Reason</strong>
+                <p style={{fontSize:14,marginTop:6}}>{selectedReport.reason}</p>
+              </div>
+              <div>
+                <strong style={{fontSize:12,color:'var(--text-2)',textTransform:'uppercase',letterSpacing:0.5}}>Details</strong>
+                <p style={{fontSize:14,marginTop:6,lineHeight:1.6,color:'var(--text)',background:'var(--bg-secondary)',padding:12,borderRadius:6}}>{selectedReport.details||'No additional details provided'}</p>
+              </div>
+              <div>
+                <strong style={{fontSize:12,color:'var(--text-2)',textTransform:'uppercase',letterSpacing:0.5}}>Status</strong>
+                <p style={{fontSize:14,marginTop:6}}><span className={`badge ${statusBadge[selectedReport.status]||'badge-muted'}`}>{selectedReport.status}</span></p>
+              </div>
+              <div style={{display:'flex',gap:8,marginTop:12}}>
+                <button className="btn btn-primary btn-sm flex-1" onClick={() => {act(()=>adminAPI.updateReport(selectedReport.id,{status:'resolved'}))(); setSelectedReport(null);}} disabled={selectedReport.status === 'resolved' || selectedReport.status === 'dismissed'}>Resolve</button>
+                <button className="btn btn-ghost btn-sm flex-1" onClick={() => {act(()=>adminAPI.updateReport(selectedReport.id,{status:'dismissed'}))(); setSelectedReport(null);}} disabled={selectedReport.status === 'resolved' || selectedReport.status === 'dismissed'}>Dismiss</button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -209,9 +347,61 @@ const AdminDashboard = () => {
           <div className="card">
             <h2 style={{marginBottom:18}}>Create exercise</h2>
             <form onSubmit={createExercise} style={{display:'flex',flexDirection:'column',gap:12}}>
-              {[['name','Exercise name'],['category','Category'],['muscle_group','Muscle group'],['equipment','Equipment'],['difficulty','Difficulty']].map(([f,l])=>(
-                <div key={f} className="form-group"><label>{l}</label><input value={exerciseForm[f]} onChange={e=>setExerciseForm(x=>({...x,[f]:e.target.value}))}/></div>
-              ))}
+              <div className="form-group"><label>Exercise name</label><input value={exerciseForm.name} onChange={e=>setExerciseForm(x=>({...x,name:e.target.value}))}/></div>
+              
+              <div className="form-group">
+                <label>Category</label>
+                <select value={exerciseForm.category} onChange={e=>setExerciseForm(x=>({...x,category:e.target.value}))}>
+                  <option value="">Select category</option>
+                  <option value="Strength">Strength</option>
+                  <option value="Cardio">Cardio</option>
+                  <option value="Flexibility">Flexibility</option>
+                  <option value="Balance">Balance</option>
+                  <option value="Sports">Sports</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label>Muscle group</label>
+                <select value={exerciseForm.muscle_group} onChange={e=>setExerciseForm(x=>({...x,muscle_group:e.target.value}))}>
+                  <option value="">Select muscle group</option>
+                  <option value="Chest">Chest</option>
+                  <option value="Back">Back</option>
+                  <option value="Shoulders">Shoulders</option>
+                  <option value="Arms">Arms</option>
+                  <option value="Legs">Legs</option>
+                  <option value="Abs">Abs</option>
+                  <option value="Glutes">Glutes</option>
+                  <option value="Full body">Full body</option>
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label>Equipment</label>
+                <select value={exerciseForm.equipment} onChange={e=>setExerciseForm(x=>({...x,equipment:e.target.value}))}>
+                  <option value="">Select equipment</option>
+                  <option value="Dumbbells">Dumbbells</option>
+                  <option value="Barbell">Barbell</option>
+                  <option value="Kettlebell">Kettlebell</option>
+                  <option value="Machine">Machine</option>
+                  <option value="Bodyweight">Bodyweight</option>
+                  <option value="Bands">Bands</option>
+                  <option value="Cable">Cable</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label>Difficulty</label>
+                <select value={exerciseForm.difficulty} onChange={e=>setExerciseForm(x=>({...x,difficulty:e.target.value}))}>
+                  <option value="">Select difficulty</option>
+                  <option value="Beginner">Beginner</option>
+                  <option value="Intermediate">Intermediate</option>
+                  <option value="Advanced">Advanced</option>
+                </select>
+              </div>
+              
               <div className="form-group"><label>Description</label><textarea rows={2} value={exerciseForm.description} onChange={e=>setExerciseForm(x=>({...x,description:e.target.value}))}/></div>
               <div className="form-group"><label>Instructions</label><textarea rows={3} value={exerciseForm.instructions} onChange={e=>setExerciseForm(x=>({...x,instructions:e.target.value}))}/></div>
               <button type="submit" className="btn btn-primary btn-sm">Create exercise</button>
@@ -263,16 +453,27 @@ const AdminDashboard = () => {
             <div className="stat-card"><span className="stat-label">Total revenue</span><span className="stat-value" style={{color:'var(--green)'}}>${paymentAnalytics?.total_revenue||0}</span></div>
             <div className="stat-card"><span className="stat-label">Payment count</span><span className="stat-value">{paymentAnalytics?.payment_count||0}</span></div>
             <div className="stat-card"><span className="stat-label">Avg per session</span><span className="stat-value">$90</span></div>
-            <div className="stat-card"><span className="stat-label">Active coaches</span><span className="stat-value">{stats?.total_coaches||0}</span></div>
           </div>
           <div className="two-col fade-up">
             <div className="card">
-              <div className="section-header"><div><h2>Revenue over time</h2><p className="muted-text">Last 8 weeks</p></div></div>
-                  <FitChart type="bar" labels={[ 'Wk1','Wk2','Wk3','Wk4','Wk5','Wk6','Wk7','Wk8']} datasets={[barDataset('Revenue', [1200,1850,1400,2200,1900,2400,2800,2600], '#3fb950')]} height={200} />
+              <div className="section-header"><div><h2>Revenue over time</h2><p className="muted-text">Last 8 weeks (actual payment data)</p></div></div>
+              {revenueData && revenueData.values.some(v => v > 0) ? (
+                <FitChart type="bar" labels={revenueData.labels} datasets={[barDataset('Revenue', revenueData.values, '#3fb950')]} height={200} />
+              ) : (
+                <div style={{height:200,display:'flex',alignItems:'center',justifyContent:'center',background:'var(--bg-secondary)',borderRadius:6}}>
+                  <p className="muted-text">No completed payments yet (graph will populate as coaches receive payments)</p>
+                </div>
+              )}
             </div>
             <div className="card">
-              <div className="section-header"><div><h2>User signups</h2><p className="muted-text">Last 8 weeks</p></div></div>
-              <FitChart type="bar" labels={['Wk1','Wk2','Wk3','Wk4','Wk5','Wk6','Wk7','Wk8']} datasets={[barDataset('Signups', [28,42,35,61,48,55,72,68], '#58a6ff')]} height={200} />
+              <div className="section-header"><div><h2>User signups</h2><p className="muted-text">Last 8 weeks (actual user registration data)</p></div></div>
+              {signupData && signupData.values.some(v => v > 0) ? (
+                <FitChart type="bar" labels={signupData.labels} datasets={[barDataset('Signups', signupData.values, '#58a6ff')]} height={200} />
+              ) : (
+                <div style={{height:200,display:'flex',alignItems:'center',justifyContent:'center',background:'var(--bg-secondary)',borderRadius:6}}>
+                  <p className="muted-text">No signup data available yet</p>
+                </div>
+              )}
             </div>
           </div>
           <div className="card fade-up">
@@ -297,8 +498,10 @@ const AdminDashboard = () => {
               </select>
               <input type="number" value={engagementFilters.count} onChange={e=>setEngagementFilters(f=>({...f,count:parseInt(e.target.value||0)}))} style={{width:90}} />
               <button className="btn btn-primary btn-sm" onClick={()=>loadEngagement(engagementFilters)}>Apply</button>
-              <div style={{marginLeft:'auto'}}>
-                <strong style={{marginRight:12}}>DAU:</strong>{engagementData?.dau||0} &nbsp; <strong>WAU:</strong>{engagementData?.wau||0} &nbsp; <strong>MAU:</strong>{engagementData?.mau||0}
+              <div style={{marginLeft:'auto',display:'flex',gap:24}}>
+                <div style={{display:'flex',alignItems:'baseline',gap:6}}><strong>DAU:</strong><span style={{fontSize:16,fontWeight:700}}>{engagementData?.dau||0}</span></div>
+                <div style={{display:'flex',alignItems:'baseline',gap:6}}><strong>WAU:</strong><span style={{fontSize:16,fontWeight:700}}>{engagementData?.wau||0}</span></div>
+                <div style={{display:'flex',alignItems:'baseline',gap:6}}><strong>MAU:</strong><span style={{fontSize:16,fontWeight:700}}>{engagementData?.mau||0}</span></div>
               </div>
             </div>
             <div>
