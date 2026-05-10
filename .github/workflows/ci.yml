@@ -1,4 +1,4 @@
-name: FitApp Frontend CI 
+name: FitApp Frontend CI  
 
 on:
   push:
