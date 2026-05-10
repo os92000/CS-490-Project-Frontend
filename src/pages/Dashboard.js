@@ -30,11 +30,11 @@ const Dashboard = () => {
         const formatDate = (d) => d.toISOString().split('T')[0];
 
         const [sv, wk, nu, me, wl, co, cl] = await Promise.all([
-          surveysAPI.getMyFitnessSurvey().catch(() => null),
-          analyticsAPI.getWorkoutSummary({ days: 30 }).catch(() => null),
-          analyticsAPI.getNutritionSummary({ days: 30 }).catch(() => null),
-          nutritionAPI.getMeals({ start_date: formatDate(startDate), end_date: formatDate(endDate) }).catch(() => null),
-          workoutsAPI.getWorkoutLogs({ start_date: formatDate(new Date(Date.now() - (55 * 24 * 60 * 60 * 1000))), end_date: formatDate(endDate) }).catch(() => null),
+          isClient ? surveysAPI.getMyFitnessSurvey().catch(() => null) : Promise.resolve(null),
+          isClient ? analyticsAPI.getWorkoutSummary({ days: 30 }).catch(() => null) : Promise.resolve(null),
+          isClient ? analyticsAPI.getNutritionSummary({ days: 30 }).catch(() => null) : Promise.resolve(null),
+          isClient ? nutritionAPI.getMeals({ start_date: formatDate(startDate), end_date: formatDate(endDate) }).catch(() => null) : Promise.resolve(null),
+          isClient ? workoutsAPI.getWorkoutLogs({ start_date: formatDate(new Date(Date.now() - (55 * 24 * 60 * 60 * 1000))), end_date: formatDate(endDate) }).catch(() => null) : Promise.resolve(null),
           isClient ? coachesAPI.getMyCoach().catch(() => null) : Promise.resolve(null),
           isCoach  ? coachesAPI.getMyClients().catch(() => null) : Promise.resolve(null),
         ]);
@@ -81,6 +81,10 @@ const Dashboard = () => {
 
   if (loading) return <div className="loading">Loading dashboard…</div>;
 
+  const isClient = ['client', 'both'].includes(user.role);
+  const isCoach  = ['coach', 'both'].includes(user.role);
+  const isCoachOnly = isCoach && !isClient;
+
   const roleDisplay = user.role === 'both' ? 'Client & Coach'
     : user.role?.charAt(0).toUpperCase() + user.role?.slice(1);
   const firstName = user.profile?.first_name || user.email?.split('@')[0] || 'there';
@@ -118,27 +122,31 @@ const Dashboard = () => {
       </div>
 
       {/* PULSE CARDS */}
-      <div className="dashboard-ribbon fade-up fade-up-1">
-        <div className="pulse-card pulse-card-green">
-          <div className="pulse-card-top"><span>Weekly sessions</span><strong>{wkFreq}x / wk</strong></div>
-          <div className="pulse-track"><div className="pulse-fill" style={{ width: `${Math.min((wkFreq/7)*100,100)}%` }} /></div>
+      {!isCoachOnly && (
+        <div className="dashboard-ribbon fade-up fade-up-1">
+          <div className="pulse-card pulse-card-green">
+            <div className="pulse-card-top"><span>Weekly sessions</span><strong>{wkFreq}x / wk</strong></div>
+            <div className="pulse-track"><div className="pulse-fill" style={{ width: `${Math.min((wkFreq/7)*100,100)}%` }} /></div>
+          </div>
+          <div className="pulse-card pulse-card-blue">
+            <div className="pulse-card-top"><span>Session rating</span><strong>{wkRating.toFixed(1)}/5</strong></div>
+            <div className="pulse-track"><div className="pulse-fill" style={{ width: `${Math.min((wkRating/5)*100,100)}%` }} /></div>
+          </div>
+          <div className="pulse-card pulse-card-warm">
+            <div className="pulse-card-top"><span>Avg calories</span><strong>{avgCal} cal</strong></div>
+            <div className="pulse-track"><div className="pulse-fill" style={{ width: `${Math.min((avgCal/2500)*100,100)}%` }} /></div>
+          </div>
         </div>
-        <div className="pulse-card pulse-card-blue">
-          <div className="pulse-card-top"><span>Session rating</span><strong>{wkRating.toFixed(1)}/5</strong></div>
-          <div className="pulse-track"><div className="pulse-fill" style={{ width: `${Math.min((wkRating/5)*100,100)}%` }} /></div>
-        </div>
-        <div className="pulse-card pulse-card-warm">
-          <div className="pulse-card-top"><span>Avg calories</span><strong>{avgCal} cal</strong></div>
-          <div className="pulse-track"><div className="pulse-fill" style={{ width: `${Math.min((avgCal/2500)*100,100)}%` }} /></div>
-        </div>
-      </div>
+      )}
 
       {/* STAT CARDS */}
       <div className="stats-grid fade-up fade-up-2">
         {[
-          { label: '30-day workouts',  value: wkTotal,            sub: 'sessions logged'   },
-          { label: 'Minutes trained',  value: wkMin,              sub: 'total this period'  },
-          { label: 'Avg daily cal',    value: avgCal,             sub: 'nutrition'           },
+          ...(!isCoachOnly ? [
+            { label: '30-day workouts',  value: wkTotal,            sub: 'sessions logged'   },
+            { label: 'Minutes trained',  value: wkMin,              sub: 'total this period'  },
+            { label: 'Avg daily cal',    value: avgCal,             sub: 'nutrition'           },
+          ] : []),
           { label: 'Active clients',   value: clients.length,     sub: 'on your roster'      },
         ].map(s => (
           <div key={s.label} className="stat-card">
@@ -150,7 +158,7 @@ const Dashboard = () => {
       </div>
 
       {/* SURVEY BANNER */}
-      {!survey && (
+      {!survey && !isCoachOnly && (
         <div className="card fade-up" style={{ borderColor: 'rgba(227,179,65,0.3)', background: 'rgba(227,179,65,0.06)' }}>
           <div className="flex items-center justify-between flex-wrap gap-12">
             <div>
@@ -163,38 +171,40 @@ const Dashboard = () => {
       )}
 
       {/* CHARTS ROW */}
-      <div className="two-col fade-up fade-up-2">
-        <div className="card">
-          <div className="section-header">
-            <div><h2>Workout frequency</h2><p className="muted-text">Sessions over last 8 weeks</p></div>
-            <button className="btn btn-ghost btn-sm" onClick={() => navigate('/analytics')}>Full analytics →</button>
-          </div>
-          <FitChart
-            type="bar"
-            labels={workoutFrequencySeries.labels}
-            datasets={[barDataset('Sessions', workoutFrequencySeries.values, '#3fb950')]}
-            height={180}
-          />
-        </div>
-        <div className="card">
-          <div className="section-header">
-            <div><h2>Daily calories</h2><p className="muted-text">Last 7 days</p></div>
-          </div>
-          {dailyCaloriesSeries.values.some(v => v > 0) ? (
+      {!isCoachOnly && (
+        <div className="two-col fade-up fade-up-2">
+          <div className="card">
+            <div className="section-header">
+              <div><h2>Workout frequency</h2><p className="muted-text">Sessions over last 8 weeks</p></div>
+              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/analytics')}>Full analytics →</button>
+            </div>
             <FitChart
-              type="line"
-              labels={dailyCaloriesSeries.labels}
-              datasets={[lineDataset('Calories', dailyCaloriesSeries.values, '#e3b341', true)]}
+              type="bar"
+              labels={workoutFrequencySeries.labels}
+              datasets={[barDataset('Sessions', workoutFrequencySeries.values, '#3fb950')]}
               height={180}
             />
-          ) : (
-            <div style={{ textAlign: 'center', padding: '40px 0' }}>
-              <p style={{ fontSize: 32, marginBottom: 8 }}>🍽️</p>
-              <p className="muted-text">Log meals to see your daily calorie trend here.</p>
+          </div>
+          <div className="card">
+            <div className="section-header">
+              <div><h2>Daily calories</h2><p className="muted-text">Last 7 days</p></div>
             </div>
-          )}
+            {dailyCaloriesSeries.values.some(v => v > 0) ? (
+              <FitChart
+                type="line"
+                labels={dailyCaloriesSeries.labels}
+                datasets={[lineDataset('Calories', dailyCaloriesSeries.values, '#e3b341', true)]}
+                height={180}
+              />
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                <p style={{ fontSize: 32, marginBottom: 8 }}>🍽️</p>
+                <p className="muted-text">Log meals to see your daily calorie trend here.</p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* CLIENT FEATURES */}
       {hasRole(['client','both']) && (
@@ -262,7 +272,7 @@ const Dashboard = () => {
       )}
 
       {/* FITNESS PROFILE SUMMARY */}
-      {survey && (
+      {survey && !isCoachOnly && (
         <div className="card fade-up">
           <div className="section-header"><div><h2>Your fitness profile</h2></div></div>
           <div className="stats-grid">

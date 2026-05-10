@@ -2,8 +2,21 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { coachesAPI } from '../services/api';
 
+const PAGE_SIZE = 10;
 const moodEmoji = { great:'😄', good:'😊', okay:'😐', poor:'😔', terrible:'😞' };
 const mealTypeColor = { breakfast:'badge-amber', lunch:'badge-green', dinner:'badge-blue', snack:'badge-teal' };
+
+const PaginationControls = ({ page, totalPages, onPrev, onNext }) => {
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="flex justify-between items-center" style={{ marginTop: 12 }}>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={onPrev} disabled={page === 1}>← Prev</button>
+      <span className="muted-text" style={{ fontSize: 12 }}>Page {page} of {totalPages}</span>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={onNext} disabled={page === totalPages}>Next →</button>
+    </div>
+  );
+};
 
 const ClientProgress = () => {
   const { clientId } = useParams();
@@ -13,6 +26,11 @@ const ClientProgress = () => {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [removing, setRemoving] = useState(false);
+  const [mealLogPage, setMealLogPage] = useState(1);
+  const [workoutLogPage, setWorkoutLogPage] = useState(1);
+  const [metricsPage, setMetricsPage] = useState(1);
+  const [wellnessPage, setWellnessPage] = useState(1);
+  const [photosPage, setPhotosPage] = useState(1);
 
   useEffect(() => {
     coachesAPI.getClientProgress(clientId)
@@ -78,6 +96,7 @@ const ClientProgress = () => {
             <p className="page-copy">{client?.email} · {data.survey?.fitness_level || 'No fitness level set'}</p>
             <div className="flex gap-10" style={{ marginTop: 14 }}>
               <button className="btn btn-primary btn-sm" onClick={openChat}>Message client</button>
+              <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/clients/${clientId}/analytics`)}>View analytics</button>
               <button className="btn btn-danger btn-sm" onClick={removeClient} disabled={removing}>
                 {removing ? 'Removing…' : 'Remove client'}
               </button>
@@ -104,7 +123,22 @@ const ClientProgress = () => {
 
       {/* TABS */}
       <div className="tab-row fade-up fade-up-2">
-        {tabs.map(([v, l]) => <button key={v} className={`tab-button ${activeTab === v ? 'active' : ''}`} onClick={() => setActiveTab(v)}>{l}</button>)}
+        {tabs.map(([v, l]) => (
+          <button 
+            key={v} 
+            className={`tab-button ${activeTab === v ? 'active' : ''}`} 
+            onClick={() => {
+              setActiveTab(v);
+              setMealLogPage(1);
+              setWorkoutLogPage(1);
+              setMetricsPage(1);
+              setWellnessPage(1);
+              setPhotosPage(1);
+            }}
+          >
+            {l}
+          </button>
+        ))}
       </div>
 
       {/* OVERVIEW */}
@@ -179,36 +213,51 @@ const ClientProgress = () => {
           ) : (
             <div className="card">
               <div className="section-header"><div><h2>Meal log</h2><p className="muted-text">All logged meals, newest first</p></div></div>
-              {Object.entries((data.meal_logs || []).reduce((acc, m) => { (acc[m.date] = acc[m.date] || []).push(m); return acc; }, {}))
-                .sort(([a], [b]) => b.localeCompare(a))
-                .map(([date, meals]) => (
-                  <div key={date} style={{ marginBottom: 20 }}>
-                    <div className="flex items-center gap-12" style={{ marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
-                      <strong style={{ fontSize: 14 }}>{date}</strong>
-                      <span className="badge badge-amber" style={{ fontSize: 10 }}>{meals.reduce((s, m) => s + (m.calories || 0), 0)} kcal total</span>
-                      <span className="badge badge-green" style={{ fontSize: 10 }}>{meals.reduce((s, m) => s + (m.protein_g || 0), 0)}g protein</span>
-                    </div>
-                    {meals.map(m => (
-                      <div key={m.id} className="list-row">
-                        <div>
-                          <div className="flex items-center gap-8 mb-4">
-                            <span className={`badge ${mealTypeColor[m.meal_type] || 'badge-muted'}`} style={{ fontSize: 10 }}>{m.meal_type}</span>
-                          </div>
-                          <p className="muted-text" style={{ fontSize: 13 }}>{m.food_items || 'No details recorded'}</p>
-                          {m.notes && <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>{m.notes}</p>}
+              {(() => {
+                const grouped = Object.entries((data.meal_logs || []).reduce((acc, m) => { (acc[m.date] = acc[m.date] || []).push(m); return acc; }, {}))
+                  .sort(([a], [b]) => b.localeCompare(a));
+                const totalPages = Math.ceil(grouped.length / PAGE_SIZE);
+                const paginatedDates = grouped.slice((mealLogPage - 1) * PAGE_SIZE, mealLogPage * PAGE_SIZE);
+                
+                return (
+                  <>
+                    {paginatedDates.map(([date, meals]) => (
+                      <div key={date} style={{ marginBottom: 20 }}>
+                        <div className="flex items-center gap-12" style={{ marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
+                          <strong style={{ fontSize: 14 }}>{date}</strong>
+                          <span className="badge badge-amber" style={{ fontSize: 10 }}>{meals.reduce((s, m) => s + (m.calories || 0), 0)} kcal total</span>
+                          <span className="badge badge-green" style={{ fontSize: 10 }}>{meals.reduce((s, m) => s + (m.protein_g || 0), 0)}g protein</span>
                         </div>
-                        <div className="flex flex-col items-end gap-4" style={{ flexShrink: 0 }}>
-                          {m.calories && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--amber)', fontFamily: "'Syne', sans-serif" }}>{m.calories} kcal</span>}
-                          <div className="flex gap-6">
-                            {m.protein_g && <span className="badge badge-green" style={{ fontSize: 10 }}>{m.protein_g}g protein</span>}
-                            {m.carbs_g && <span className="badge badge-blue" style={{ fontSize: 10 }}>{m.carbs_g}g carbs</span>}
-                            {m.fat_g && <span className="badge badge-amber" style={{ fontSize: 10 }}>{m.fat_g}g fat</span>}
+                        {meals.map(m => (
+                          <div key={m.id} className="list-row">
+                            <div>
+                              <div className="flex items-center gap-8 mb-4">
+                                <span className={`badge ${mealTypeColor[m.meal_type] || 'badge-muted'}`} style={{ fontSize: 10 }}>{m.meal_type}</span>
+                              </div>
+                              <p className="muted-text" style={{ fontSize: 13 }}>{m.food_items || 'No details recorded'}</p>
+                              {m.notes && <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>{m.notes}</p>}
+                            </div>
+                            <div className="flex flex-col items-end gap-4" style={{ flexShrink: 0 }}>
+                              {m.calories && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--amber)', fontFamily: "'Syne', sans-serif" }}>{m.calories} kcal</span>}
+                              <div className="flex gap-6">
+                                {m.protein_g && <span className="badge badge-green" style={{ fontSize: 10 }}>{m.protein_g}g protein</span>}
+                                {m.carbs_g && <span className="badge badge-blue" style={{ fontSize: 10 }}>{m.carbs_g}g carbs</span>}
+                                {m.fat_g && <span className="badge badge-amber" style={{ fontSize: 10 }}>{m.fat_g}g fat</span>}
+                              </div>
+                            </div>
                           </div>
-                        </div>
+                        ))}
                       </div>
                     ))}
-                  </div>
-                ))}
+                    <PaginationControls 
+                      page={mealLogPage}
+                      totalPages={totalPages}
+                      onPrev={() => setMealLogPage(p => Math.max(1, p - 1))}
+                      onNext={() => setMealLogPage(p => Math.min(totalPages, p + 1))}
+                    />
+                  </>
+                );
+              })()}
             </div>
           )}
         </div>
@@ -219,53 +268,102 @@ const ClientProgress = () => {
           <div className="section-header"><div><h2>Workout logs</h2><p className="muted-text">{data.workout_logs?.length || 0} sessions</p></div></div>
           {!data.workout_logs?.length ? (
             <p className="muted-text">No workouts logged yet.</p>
-          ) : data.workout_logs.map(log => (
-            <div key={log.id} className="list-row">
-              <div>
-                <strong style={{ fontSize: 14 }}>{log.date}</strong>
-                {log.plan && <span className="muted-text" style={{ marginLeft: 10, fontSize: 13 }}>{log.plan.title}</span>}
-                {log.notes && <p className="muted-text" style={{ fontSize: 12, marginTop: 3 }}>{log.notes}</p>}
-              </div>
-              <div className="flex items-center gap-8">
-                {log.duration_minutes && <span className="badge badge-muted">{log.duration_minutes} min</span>}
-                {log.rating && <span style={{ color: 'var(--amber)', fontSize: 14 }}>{'★'.repeat(log.rating)}</span>}
-              </div>
-            </div>
-          ))}
+          ) : (() => {
+            const totalPages = Math.ceil((data.workout_logs?.length || 0) / PAGE_SIZE);
+            const paginatedLogs = (data.workout_logs || []).slice((workoutLogPage - 1) * PAGE_SIZE, workoutLogPage * PAGE_SIZE);
+            
+            return (
+              <>
+                {paginatedLogs.map(log => (
+                  <div key={log.id} className="list-row">
+                    <div>
+                      <strong style={{ fontSize: 14 }}>{log.date}</strong>
+                      {log.plan && <span className="muted-text" style={{ marginLeft: 10, fontSize: 13 }}>{log.plan.title}</span>}
+                      {log.notes && <p className="muted-text" style={{ fontSize: 12, marginTop: 3 }}>{log.notes}</p>}
+                    </div>
+                    <div className="flex items-center gap-8">
+                      {log.duration_minutes && <span className="badge badge-muted">{log.duration_minutes} min</span>}
+                      {log.rating && <span style={{ color: 'var(--amber)', fontSize: 14 }}>{'★'.repeat(log.rating)}</span>}
+                    </div>
+                  </div>
+                ))}
+                <PaginationControls 
+                  page={workoutLogPage}
+                  totalPages={totalPages}
+                  onPrev={() => setWorkoutLogPage(p => Math.max(1, p - 1))}
+                  onNext={() => setWorkoutLogPage(p => Math.min(totalPages, p + 1))}
+                />
+              </>
+            );
+          })()}
         </div>
       )}
 
       {activeTab === 'metrics' && (
         <div className="card fade-up">
           <div className="section-header"><div><h2>Body metrics</h2><p className="muted-text">Weight, body fat, measurements</p></div></div>
-          {!data.body_metrics?.length ? <p className="muted-text">No body metrics logged yet.</p> : data.body_metrics.map(m => (
-            <div key={m.id} className="list-row">
-              <div><strong style={{ fontSize: 14 }}>{m.date}</strong></div>
-              <div className="flex gap-8 flex-wrap">
-                {m.weight_kg && <span className="badge badge-green">{m.weight_kg} kg</span>}
-                {m.body_fat_percentage && <span className="badge badge-amber">{m.body_fat_percentage}% fat</span>}
-                {m.waist_cm && <span className="badge badge-muted">{m.waist_cm}cm waist</span>}
-              </div>
-            </div>
-          ))}
+          {!data.body_metrics?.length ? (
+            <p className="muted-text">No body metrics logged yet.</p>
+          ) : (() => {
+            const totalPages = Math.ceil((data.body_metrics?.length || 0) / PAGE_SIZE);
+            const paginatedMetrics = (data.body_metrics || []).slice((metricsPage - 1) * PAGE_SIZE, metricsPage * PAGE_SIZE);
+            
+            return (
+              <>
+                {paginatedMetrics.map(m => (
+                  <div key={m.id} className="list-row">
+                    <div><strong style={{ fontSize: 14 }}>{m.date}</strong></div>
+                    <div className="flex gap-8 flex-wrap">
+                      {m.weight_kg && <span className="badge badge-green">{m.weight_kg} kg</span>}
+                      {m.body_fat_percentage && <span className="badge badge-amber">{m.body_fat_percentage}% fat</span>}
+                      {m.waist_cm && <span className="badge badge-muted">{m.waist_cm}cm waist</span>}
+                    </div>
+                  </div>
+                ))}
+                <PaginationControls 
+                  page={metricsPage}
+                  totalPages={totalPages}
+                  onPrev={() => setMetricsPage(p => Math.max(1, p - 1))}
+                  onNext={() => setMetricsPage(p => Math.min(totalPages, p + 1))}
+                />
+              </>
+            );
+          })()}
         </div>
       )}
 
       {activeTab === 'wellness' && (
         <div className="card fade-up">
           <div className="section-header"><div><h2>Wellness logs</h2><p className="muted-text">Mood, energy, sleep, stress</p></div></div>
-          {!data.wellness_logs?.length ? <p className="muted-text">No wellness data yet.</p> : data.wellness_logs.map(log => (
-            <div key={log.id} className="list-row">
-              <div>
-                <div className="flex items-center gap-8 mb-4">
-                  <span style={{ fontSize: 20 }}>{moodEmoji[log.mood] || '😐'}</span>
-                  <strong style={{ fontSize: 14 }}>{log.date}</strong>
-                  <span className="badge badge-muted" style={{ fontSize: 10, textTransform: 'capitalize' }}>{log.mood}</span>
-                </div>
-                <p className="muted-text" style={{ fontSize: 12 }}>Energy {log.energy_level}/10 · Stress {log.stress_level}/10 · Sleep {log.sleep_hours || '—'}h ({log.sleep_quality || '—'})</p>
-              </div>
-            </div>
-          ))}
+          {!data.wellness_logs?.length ? (
+            <p className="muted-text">No wellness data yet.</p>
+          ) : (() => {
+            const totalPages = Math.ceil((data.wellness_logs?.length || 0) / PAGE_SIZE);
+            const paginatedWellness = (data.wellness_logs || []).slice((wellnessPage - 1) * PAGE_SIZE, wellnessPage * PAGE_SIZE);
+            
+            return (
+              <>
+                {paginatedWellness.map(log => (
+                  <div key={log.id} className="list-row">
+                    <div>
+                      <div className="flex items-center gap-8 mb-4">
+                        <span style={{ fontSize: 20 }}>{moodEmoji[log.mood] || '😐'}</span>
+                        <strong style={{ fontSize: 14 }}>{log.date}</strong>
+                        <span className="badge badge-muted" style={{ fontSize: 10, textTransform: 'capitalize' }}>{log.mood}</span>
+                      </div>
+                      <p className="muted-text" style={{ fontSize: 12 }}>Energy {log.energy_level}/10 · Stress {log.stress_level}/10 · Sleep {log.sleep_hours || '—'}h ({log.sleep_quality || '—'})</p>
+                    </div>
+                  </div>
+                ))}
+                <PaginationControls 
+                  page={wellnessPage}
+                  totalPages={totalPages}
+                  onPrev={() => setWellnessPage(p => Math.max(1, p - 1))}
+                  onNext={() => setWellnessPage(p => Math.min(totalPages, p + 1))}
+                />
+              </>
+            );
+          })()}
         </div>
       )}
 
@@ -284,35 +382,51 @@ const ClientProgress = () => {
               <p className="muted-text">This client has not uploaded any progress photos.</p>
             </div>
           ) : (
-            <div>
-              {Object.entries((data.progress_photos || []).reduce((acc, p) => {
-                const key = p.date || p.uploaded_at?.split('T')[0] || 'Unknown';
-                (acc[key] = acc[key] || []).push(p);
-                return acc;
-              }, {})).sort(([a], [b]) => b.localeCompare(a)).map(([date, photos]) => (
-                <div key={date} style={{ marginBottom: 24 }}>
-                  <div className="flex items-center gap-12" style={{ marginBottom: 10 }}>
-                    <strong style={{ fontSize: 14 }}>{date}</strong>
-                    <span className="badge badge-muted">{photos.length} photo{photos.length !== 1 ? 's' : ''}</span>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
-                    {photos.map((photo) => (
-                      <div key={photo.id} style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                        {photo.photo_url ? (
-                          <img src={photo.photo_url} alt={photo.category || 'progress photo'} style={{ width: '100%', aspectRatio: '3/4', objectFit: 'cover', display: 'block' }} />
-                        ) : (
-                          <div style={{ aspectRatio: '3/4', display: 'grid', placeItems: 'center', background: 'var(--surface)' }}>📷</div>
-                        )}
-                        <div style={{ padding: '8px 10px', borderTop: '1px solid var(--border)' }}>
-                          <span className="badge badge-muted" style={{ fontSize: 10, textTransform: 'capitalize' }}>{photo.category || 'other'}</span>
-                          {photo.notes && <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>{photo.notes}</p>}
+            <>
+              {(() => {
+                const grouped = Object.entries((data.progress_photos || []).reduce((acc, p) => {
+                  const key = p.date || p.uploaded_at?.split('T')[0] || 'Unknown';
+                  (acc[key] = acc[key] || []).push(p);
+                  return acc;
+                }, {})).sort(([a], [b]) => b.localeCompare(a));
+                const totalPages = Math.ceil(grouped.length / PAGE_SIZE);
+                const paginatedPhotoDates = grouped.slice((photosPage - 1) * PAGE_SIZE, photosPage * PAGE_SIZE);
+                
+                return (
+                  <div>
+                    {paginatedPhotoDates.map(([date, photos]) => (
+                      <div key={date} style={{ marginBottom: 24 }}>
+                        <div className="flex items-center gap-12" style={{ marginBottom: 10 }}>
+                          <strong style={{ fontSize: 14 }}>{date}</strong>
+                          <span className="badge badge-muted">{photos.length} photo{photos.length !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+                          {photos.map((photo) => (
+                            <div key={photo.id} style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                              {photo.photo_url ? (
+                                <img src={photo.photo_url} alt={photo.category || 'progress photo'} style={{ width: '100%', aspectRatio: '3/4', objectFit: 'cover', display: 'block' }} />
+                              ) : (
+                                <div style={{ aspectRatio: '3/4', display: 'grid', placeItems: 'center', background: 'var(--surface)' }}>📷</div>
+                              )}
+                              <div style={{ padding: '8px 10px', borderTop: '1px solid var(--border)' }}>
+                                <span className="badge badge-muted" style={{ fontSize: 10, textTransform: 'capitalize' }}>{photo.category || 'other'}</span>
+                                {photo.notes && <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>{photo.notes}</p>}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     ))}
+                    <PaginationControls 
+                      page={photosPage}
+                      totalPages={totalPages}
+                      onPrev={() => setPhotosPage(p => Math.max(1, p - 1))}
+                      onNext={() => setPhotosPage(p => Math.min(totalPages, p + 1))}
+                    />
                   </div>
-                </div>
-              ))}
-            </div>
+                );
+              })()}
+            </>
           )}
         </div>
       )}

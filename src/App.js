@@ -23,6 +23,7 @@ import CoachSettings from './pages/CoachSettings';
 import CoachOnboarding from './pages/CoachOnboarding';
 import AdminDashboard from './pages/AdminDashboard';
 import ClientProgress from './pages/ClientProgress';
+import CoachClientAnalytics from './pages/CoachClientAnalytics';
 import TopCoachesPage from './pages/TopCoachesPage';
 import CustomizeWorkoutPlan from './pages/CustomizeWorkoutPlan';
 import ViewWorkoutPlan from './pages/ViewWorkoutPlan';
@@ -243,6 +244,14 @@ function App() {
           element={
             <ProtectedRoute>
               <ClientProgress />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/clients/:clientId/analytics"
+          element={
+            <ProtectedRoute>
+              <CoachClientAnalytics />
             </ProtectedRoute>
           }
         />

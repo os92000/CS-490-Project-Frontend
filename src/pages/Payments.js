@@ -20,9 +20,10 @@ const Payments = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [histRes, coachRes] = await Promise.all([
+      const [histRes, coachRes, myPricingRes] = await Promise.all([
         paymentsAPI.getPaymentHistory().catch(() => null),
         isClient ? coachesAPI.getMyCoach().catch(() => null) : Promise.resolve(null),
+        isCoach ? paymentsAPI.getCoachPricing(user?.id).catch(() => null) : Promise.resolve(null),
       ]);
       if (histRes?.data?.success) setHistory(histRes.data.data.payments || []);
       if (coachRes?.data?.success) {
@@ -32,9 +33,12 @@ const Payments = () => {
           if (priceRes?.data?.success) setPricing(priceRes.data.data.pricing || []);
         }
       }
+      if (myPricingRes?.data?.success) {
+        setPricing(myPricingRes.data.data.pricing || []);
+      }
     } catch { setError('Failed to load payment data.'); }
     finally { setLoading(false); }
-  }, [isClient]);
+  }, [isClient, isCoach, user?.id]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -136,10 +140,15 @@ const Payments = () => {
             <h2 style={{ marginBottom: 16 }}>
               {isCoach ? 'Your coaching rates' : myCoach ? `${myCoach.profile?.first_name || 'Coach'}'s rates` : 'Pricing'}
             </h2>
-            {pricing.length === 0 ? (
+            {pricing.length === 0 && isCoach ? (
               <div style={{ textAlign: 'center', padding: '30px 0' }}>
                 <p style={{ fontSize: 32, marginBottom: 8 }}>💳</p>
-                <p className="muted-text">{isCoach ? 'Set your rates in Coach Settings.' : myCoach ? 'No pricing set by your coach yet.' : 'Connect with a coach first.'}</p>
+                <p className="muted-text">Set your rates in Coach Settings.</p>
+              </div>
+            ) : pricing.length === 0 && !isCoach ? (
+              <div style={{ textAlign: 'center', padding: '30px 0' }}>
+                <p style={{ fontSize: 32, marginBottom: 8 }}>💳</p>
+                <p className="muted-text">{myCoach ? 'No pricing set by your coach yet.' : 'Connect with a coach first.'}</p>
               </div>
             ) : pricing.map(p => (
               <div key={p.id} className="list-row">
