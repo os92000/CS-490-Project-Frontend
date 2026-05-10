@@ -12,7 +12,7 @@ def adminApprove():
     wait = WebDriverWait(driver, 10)
 
     try:
-        driver.get("http://localhost:3000")
+        driver.get("https://www.cs490group10.com")
         time.sleep(2)
         login_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//a[normalize-space()='Log in']")))
         login_button.click()
@@ -22,7 +22,7 @@ def adminApprove():
         driver.find_element(By.ID, "password").send_keys("Admin123!")
         driver.find_element(By.XPATH, "//button[@type='submit']").click()
 
-        wait.until(lambda d: "/dashboard" in d.current_url)
+        wait.until(lambda d: "/admin" in d.current_url)
         wait.until(EC.element_to_be_clickable((By.LINK_TEXT, "Admin"))).click()
         wait.until(EC.url_contains("/admin"))
 

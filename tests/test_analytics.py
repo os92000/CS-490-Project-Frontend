@@ -12,18 +12,20 @@ def analytics_test():
     wait = WebDriverWait(driver, 10)
 
     try:
-        driver.get("http://localhost:3000")
+        driver.get("https://www.cs490group10.com")
         time.sleep(2)
         login_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//a[normalize-space()='Log in']")))
         login_button.click()
         time.sleep(2)
 
-        wait.until(EC.visibility_of_element_located((By.ID, "email"))).send_keys("test@gmail.com")
-        driver.find_element(By.ID, "password").send_keys("Password123")
+        wait.until(EC.visibility_of_element_located((By.ID, "email"))).send_keys("client.john@fitapp.local")
+        driver.find_element(By.ID, "password").send_keys("FitData2026!")
         driver.find_element(By.XPATH, "//button[@type='submit']").click()
 
         wait.until(lambda d: "/dashboard" in d.current_url)
 
+        more_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'More')]")))
+        more_button.click()
         wait.until(EC.element_to_be_clickable((By.LINK_TEXT, "Analytics"))).click()
         wait.until(EC.url_contains("/analytics"))
         

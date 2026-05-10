@@ -23,7 +23,7 @@ def signup_test():
     wait = WebDriverWait(driver, 10)
 
     try:
-        driver.get("http://localhost:3000")
+        driver.get("https://www.cs490group10.com")
         time.sleep(2)
         signup_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//a[normalize-space()='Sign up']")))
         signup_button.click()
@@ -31,7 +31,7 @@ def signup_test():
 
         wait.until(EC.visibility_of_element_located((By.NAME, "first_name"))).send_keys("David")
         driver.find_element(By.NAME, "last_name").send_keys("Perez")
-        driver.find_element(By.NAME, "email").send_keys("davidperez@gmail.com")
+        driver.find_element(By.NAME, "email").send_keys("davidperez3@gmail.com")
         driver.find_element(By.NAME, "password").send_keys("Password123")
         driver.find_element(By.NAME, "confirmPassword").send_keys("Password123")
 
@@ -67,13 +67,13 @@ def signup_test():
         certifications.send_keys("CPR")
 
         specialization = driver.find_element(By.CSS_SELECTOR, 'textarea[placeholder="What kind of clients or goals do you specialize in?"]')
-        specialization.send_keys("HIIT Training, Weight Loss")
+        specialization.send_keys("Cardio Training, Weight Loss")
 
         weight_loss = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='Weight Loss']")))
         weight_loss.click()
 
-        HIIT = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='HIIT Training']")))
-        HIIT.click()
+        cardio = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='Cardio Training']")))
+        cardio.click()
 
         add_slot = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='+ Add slot']")))
         driver.execute_script("arguments[0].click();", add_slot)

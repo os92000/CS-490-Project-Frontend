@@ -20,7 +20,7 @@ def signup_test():
     wait = WebDriverWait(driver, 10)
 
     try:
-        driver.get("http://localhost:3000")
+        driver.get("https://www.cs490group10.com")
         time.sleep(2)
         signup_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//a[normalize-space()='Sign up']")))
         signup_button.click()
@@ -28,7 +28,7 @@ def signup_test():
 
         wait.until(EC.visibility_of_element_located((By.NAME, "first_name"))).send_keys("John")
         driver.find_element(By.NAME, "last_name").send_keys("Doe")
-        driver.find_element(By.NAME, "email").send_keys("johndoe105@gmail.com")
+        driver.find_element(By.NAME, "email").send_keys("johndoe3@gmail.com")
         driver.find_element(By.NAME, "password").send_keys("Password123")
         driver.find_element(By.NAME, "confirmPassword").send_keys("Password123")
 

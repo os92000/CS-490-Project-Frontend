@@ -12,13 +12,13 @@ def login_test():
     wait = WebDriverWait(driver, 10)
 
     try:
-        driver.get("http://localhost:3000")
+        driver.get("https://www.cs490group10.com")
         time.sleep(2)
         login_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//a[normalize-space()='Log in']")))
         login_button.click()
         time.sleep(2)
 
-        wait.until(EC.visibility_of_element_located((By.ID, "email"))).send_keys("johndoe105@gmail.com")
+        wait.until(EC.visibility_of_element_located((By.ID, "email"))).send_keys("johndoe3@gmail.com")
         driver.find_element(By.ID, "password").send_keys("Password123")
         driver.find_element(By.XPATH, "//button[@type='submit']").click()
 
